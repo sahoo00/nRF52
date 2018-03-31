@@ -68,6 +68,8 @@ typedef struct trg2_signal_data {
 uint8_t get_trg2_state();
 void set_trg2_state(uint8_t state);
 void schedule_test();
+void trg2c_event_trigger();
+void trg2c_event_reset();
 
 void leds_reset(void);
 void vibrate(void);

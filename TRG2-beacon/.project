@@ -26,11 +26,6 @@
 	</natures>
 	<linkedResources>
 		<link>
-			<name>Application</name>
-			<type>2</type>
-			<locationURI>virtual:/virtual</locationURI>
-		</link>
-		<link>
 			<name>Driver</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
@@ -39,16 +34,6 @@
 			<name>Includes</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
-		</link>
-		<link>
-			<name>Application/main.c</name>
-			<type>1</type>
-			<locationURI>PARENT-3-PROJECT_LOC/main.c</locationURI>
-		</link>
-		<link>
-			<name>Application/sdk_config.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/config/sdk_config.h</locationURI>
 		</link>
 		<link>
 			<name>Driver/ble</name>

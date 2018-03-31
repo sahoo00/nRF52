@@ -543,6 +543,10 @@ static void on_cmd_write(ble_nus_t * p_nus, ble_evt_t const * p_ble_evt)
     	    printf("#index sum rssi score\r\n");
     		set_trg2_state(TRG2_SIGNAL);
     	}
+    	if (len > 0 && data[0] == 0x03) {
+    		NRF_LOG_INFO("TRG2C trigger through service")
+    		trg2c_event_trigger();
+    	}
     }
     if (   (p_evt_write->handle == trg2_signal_handles.cccd_handle)
         && (p_evt_write->len == 2))
@@ -565,7 +569,7 @@ void on_ble_peripheral_evt(ble_evt_t const * p_ble_evt, void * p_context)
 {
     uint32_t err_code;
 
-    //NRF_LOG_INFO("on_ble_peripheral_evt %d", p_ble_evt->header.evt_id);
+    NRF_LOG_INFO("on_ble_peripheral_evt 0x%x", p_ble_evt->header.evt_id);
     switch (p_ble_evt->header.evt_id)
     {
     	case BLE_GATTS_EVT_WRITE:
@@ -576,6 +580,8 @@ void on_ble_peripheral_evt(ble_evt_t const * p_ble_evt, void * p_context)
             err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
             APP_ERROR_CHECK(err_code);
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+            err_code = sd_ble_gatts_sys_attr_set(m_conn_handle, NULL, 0, 0);
+            APP_ERROR_CHECK(err_code);
             break;
 
         case BLE_GAP_EVT_DISCONNECTED:
@@ -634,6 +640,9 @@ void on_ble_peripheral_evt(ble_evt_t const * p_ble_evt, void * p_context)
                                              BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
             APP_ERROR_CHECK(err_code);
             break;
+        case BLE_GAP_EVT_TIMEOUT:
+        	NRF_LOG_INFO("GAP event timeout - need to restart ");
+        	break;
 
         case BLE_EVT_USER_MEM_REQUEST:
             err_code = sd_ble_user_mem_reply(p_ble_evt->evt.gattc_evt.conn_handle, NULL);

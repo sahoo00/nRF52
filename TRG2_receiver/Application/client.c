@@ -387,6 +387,7 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t con
 {
     ret_code_t err_code;
 
+    NRF_LOG_INFO("ble_nus_c_evt_handler 0x%x", p_ble_nus_evt->evt_type);
     switch (p_ble_nus_evt->evt_type)
     {
         case BLE_NUS_C_EVT_DISCOVERY_COMPLETE:
@@ -397,8 +398,7 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t con
             err_code = ble_nus_c_tx_notif_enable(p_ble_nus_c);
             APP_ERROR_CHECK(err_code);
             NRF_LOG_INFO("Connected to device with Safety Service.");
-            ready_to_send = 1;
-            //schedule_test();
+            ready_to_send = 5;
             break;
 
         case BLE_NUS_C_EVT_NUS_TX_EVT:
@@ -408,7 +408,7 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t con
         case BLE_NUS_C_EVT_DISCONNECTED:
             NRF_LOG_INFO("Disconnected.");
             ready_to_send = 0;
-            scan_start();
+            //scan_start();
             break;
     }
 }
@@ -541,6 +541,17 @@ static bool is_uuid128_present(ble_uuid128_t               const * p_target_uuid
     return false;
 }
 
+void trg2c_event_trigger() {
+	if (trg2c_trigger == 0) {
+		schedule_test();
+	}
+	trg2c_trigger++;
+}
+
+void trg2c_event_reset() {
+	trg2c_trigger = 0;
+}
+
 void schedule_test() {
 	NRF_LOG_INFO("schedule test");
 	ret_code_t            err_code;
@@ -561,6 +572,7 @@ void on_ble_central_evt(ble_evt_t const * p_ble_evt, void * p_context)
 	float score = 0;
 	uint16_t sum = 0;
 
+    NRF_LOG_INFO("on_ble_central_evt 0x%x", p_ble_evt->header.evt_id);
     switch (p_ble_evt->header.evt_id)
     {
         case BLE_GAP_EVT_ADV_REPORT:
@@ -577,10 +589,7 @@ void on_ble_central_evt(ble_evt_t const * p_ble_evt, void * p_context)
             	//}
             	trg2c_index++;
             	if (score > 1000) {
-            		if (trg2c_trigger == 0) {
-            			//schedule_test();
-            		}
-            		trg2c_trigger++;
+            		trg2c_event_trigger();
             	}
             }
             if (get_trg2_state() == TRG2_TRIGGER && is_uuid128_present(&m_trg2_uuid, p_adv_report)) {
@@ -704,6 +713,7 @@ uint32_t ble_trg2_init(ble_nus_c_t * p_ble_nus_c, ble_nus_c_init_t * p_ble_nus_c
 void send_trigger(void) {
 	if (!ready_to_send) return;
 	if (get_trg2_state() != TRG2_TRIGGER) return;
+	ready_to_send--;
 
 	NRF_LOG_INFO("Sending trigger\r\n");
     uint32_t ret_val;
@@ -714,6 +724,8 @@ void send_trigger(void) {
 			APP_ERROR_CHECK(ret_val);
 		}
 	} while (ret_val == NRF_ERROR_BUSY);
+	trg2c_event_reset();
+	nrf_delay_ms(1000);
 }
 
 
@@ -747,10 +759,10 @@ void bsp_event_handler(bsp_event_t event)
 }
 
 void test_trg2_handler(void * p_context) {
-	NRF_LOG_INFO("Test trg2 handler");
+	NRF_LOG_INFO("Test trg2 handler: %d", get_trg2_state());
 	if (get_trg2_state() == TRG2_SIGNAL && trg2c_trigger > 1) {
 		set_trg2_state(TRG2_TRIGGER);
-		trg2c_trigger = 0;
+		trg2c_event_reset();
 	}
 	if (get_trg2_state() == TRG2_TRIGGER) {
 		send_trigger();
@@ -769,8 +781,8 @@ void trg2_client_init(void)
     APP_ERROR_CHECK(err_code);
 
 	/* Define a timer id used for 10Hz sample rate */
-	//err_code = app_timer_create(&m_trg_timer_id, APP_TIMER_MODE_SINGLE_SHOT, test_trg2_handler);
-	//APP_ERROR_CHECK(err_code);
+	err_code = app_timer_create(&m_trg_timer_id, APP_TIMER_MODE_SINGLE_SHOT, test_trg2_handler);
+	APP_ERROR_CHECK(err_code);
 
 }
 
