@@ -1,9 +1,9 @@
-PROJECT_NAME     := ble_app_beacon_pca10040_s132
+PROJECT_NAME     := TRG2-beacon
 TARGETS          := nrf52832_xxaa
 OUTPUT_DIRECTORY := _build
 
-SDK_ROOT := ../../../../../..
-PROJ_DIR := ../../..
+SDK_ROOT := C:/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/
+PROJ_DIR := Application
 
 $(OUTPUT_DIRECTORY)/nrf52832_xxaa.out: \
   LINKER_SCRIPT  := ble_app_beacon_gcc_nrf52.ld
