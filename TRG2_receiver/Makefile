@@ -1,9 +1,9 @@
-PROJECT_NAME     := ble_app_uart_c_pca10040_s132
+PROJECT_NAME     := TRG2_receiver
 TARGETS          := nrf52832_xxaa
 OUTPUT_DIRECTORY := _build
 
-SDK_ROOT := ../../../../../..
-PROJ_DIR := ../../..
+SDK_ROOT := C:/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/
+PROJ_DIR := Application
 
 $(OUTPUT_DIRECTORY)/nrf52832_xxaa.out: \
   LINKER_SCRIPT  := ble_app_uart_c_gcc_nrf52.ld
@@ -147,7 +147,7 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/drivers_nrf/timer \
   $(SDK_ROOT)/components/libraries/util \
   $(SDK_ROOT)/components/drivers_nrf/pwm \
-  ../config \
+  config \
   $(SDK_ROOT)/components/libraries/csense_drv \
   $(SDK_ROOT)/components/libraries/csense \
   $(SDK_ROOT)/components/libraries/balloc \

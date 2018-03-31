@@ -26,44 +26,9 @@
 	</natures>
 	<linkedResources>
 		<link>
-			<name>Application</name>
-			<type>2</type>
-			<locationURI>virtual:/virtual</locationURI>
-		</link>
-		<link>
 			<name>Driver</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
-		</link>
-		<link>
-			<name>Application/client.c</name>
-			<type>1</type>
-			<locationURI>PARENT-3-PROJECT_LOC/client.c</locationURI>
-		</link>
-		<link>
-			<name>Application/common.h</name>
-			<type>1</type>
-			<locationURI>PARENT-3-PROJECT_LOC/common.h</locationURI>
-		</link>
-		<link>
-			<name>Application/gps.c</name>
-			<type>1</type>
-			<locationURI>PARENT-3-PROJECT_LOC/gps.c</locationURI>
-		</link>
-		<link>
-			<name>Application/main.c</name>
-			<type>1</type>
-			<locationURI>PARENT-3-PROJECT_LOC/main.c</locationURI>
-		</link>
-		<link>
-			<name>Application/sdk_config.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/config/sdk_config.h</locationURI>
-		</link>
-		<link>
-			<name>Application/service.c</name>
-			<type>1</type>
-			<locationURI>PARENT-3-PROJECT_LOC/service.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/ble</name>
