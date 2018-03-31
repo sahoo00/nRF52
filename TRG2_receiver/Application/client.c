@@ -187,6 +187,8 @@ void scan_start(void)
 {
     ret_code_t ret;
 
+    NRF_LOG_INFO("scan_start");
+
     ret = sd_ble_gap_scan_start(&m_scan_params);
     APP_ERROR_CHECK(ret);
 
@@ -299,7 +301,7 @@ void uart_event_handle(app_uart_evt_t * p_event)
 {
     static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
     static uint16_t index = 0;
-
+    NRF_LOG_INFO("uart_event_handle: 0x%x", p_event->evt_type);
     switch (p_event->evt_type)
     {
         /**@snippet [Handling data from UART] */
@@ -738,6 +740,7 @@ void bsp_event_handler(bsp_event_t event)
 {
     ret_code_t err_code;
 
+    NRF_LOG_INFO("bsp_event_handler: 0x%x", event);
     switch (event)
     {
         case BSP_EVENT_SLEEP:

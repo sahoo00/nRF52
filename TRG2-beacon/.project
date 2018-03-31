@@ -41,6 +41,16 @@
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
+			<name>Driver/boards</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>Driver/drivers_nrf</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
 			<name>Driver/fprintf</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
@@ -76,14 +86,39 @@
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
+			<name>Driver/boards/boards.c</name>
+			<type>1</type>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/boards/boards.c</locationURI>
+		</link>
+		<link>
+			<name>Driver/drivers_nrf/clock</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>Driver/drivers_nrf/common</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>Driver/drivers_nrf/gpiote</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>Driver/drivers_nrf/uart</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
 			<name>Driver/fprintf/nrf_fprintf.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/external/fprintf/nrf_fprintf.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/external/fprintf/nrf_fprintf.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/fprintf/nrf_fprintf_format.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/external/fprintf/nrf_fprintf_format.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/external/fprintf/nrf_fprintf_format.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/atomic_fifo</name>
@@ -92,6 +127,11 @@
 		</link>
 		<link>
 			<name>Driver/libraries/balloc</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>Driver/libraries/bsp</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
@@ -153,17 +193,17 @@
 		<link>
 			<name>Driver/segger_rtt/SEGGER_RTT.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/external/segger_rtt/SEGGER_RTT.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/external/segger_rtt/SEGGER_RTT.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/segger_rtt/SEGGER_RTT_Syscalls_GCC.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/external/segger_rtt/SEGGER_RTT_Syscalls_GCC.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/external/segger_rtt/SEGGER_RTT_Syscalls_GCC.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/segger_rtt/SEGGER_RTT_printf.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/external/segger_rtt/SEGGER_RTT_printf.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/external/segger_rtt/SEGGER_RTT_printf.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/softdevice/common</name>
@@ -178,7 +218,7 @@
 		<link>
 			<name>Driver/toolchain/system_nrf52.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/toolchain/system_nrf52.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/toolchain/system_nrf52.c</locationURI>
 		</link>
 		<link>
 			<name>Includes/libraries/util</name>
@@ -188,27 +228,57 @@
 		<link>
 			<name>Driver/ble/common/ble_advdata.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/ble/common/ble_advdata.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/ble/common/ble_advdata.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/ble/common/ble_srv_common.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/ble/common/ble_srv_common.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/ble/common/ble_srv_common.c</locationURI>
+		</link>
+		<link>
+			<name>Driver/drivers_nrf/clock/nrf_drv_clock.c</name>
+			<type>1</type>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/drivers_nrf/clock/nrf_drv_clock.c</locationURI>
+		</link>
+		<link>
+			<name>Driver/drivers_nrf/common/nrf_drv_common.c</name>
+			<type>1</type>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/drivers_nrf/common/nrf_drv_common.c</locationURI>
+		</link>
+		<link>
+			<name>Driver/drivers_nrf/gpiote/nrf_drv_gpiote.c</name>
+			<type>1</type>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/drivers_nrf/gpiote/nrf_drv_gpiote.c</locationURI>
+		</link>
+		<link>
+			<name>Driver/drivers_nrf/uart/nrf_drv_uart.c</name>
+			<type>1</type>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/drivers_nrf/uart/nrf_drv_uart.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/atomic_fifo/nrf_atfifo.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/atomic_fifo/nrf_atfifo.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/atomic_fifo/nrf_atfifo.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/balloc/nrf_balloc.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/balloc/nrf_balloc.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/balloc/nrf_balloc.c</locationURI>
+		</link>
+		<link>
+			<name>Driver/libraries/bsp/bsp.c</name>
+			<type>1</type>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/bsp/bsp.c</locationURI>
+		</link>
+		<link>
+			<name>Driver/libraries/bsp/bsp_nfc.c</name>
+			<type>1</type>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/bsp/bsp_nfc.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/button/app_button.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/button/app_button.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/button/app_button.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/experimental_log/src</name>
@@ -218,82 +288,82 @@
 		<link>
 			<name>Driver/libraries/experimental_memobj/nrf_memobj.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/experimental_memobj/nrf_memobj.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/experimental_memobj/nrf_memobj.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/experimental_section_vars/nrf_section_iter.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/experimental_section_vars/nrf_section_iter.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/experimental_section_vars/nrf_section_iter.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/gpiote/app_gpiote.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/gpiote/app_gpiote.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/gpiote/app_gpiote.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/hardfault/hardfault_implementation.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/hardfault/hardfault_implementation.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/hardfault/hardfault_implementation.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/pwr_mgmt/nrf_pwr_mgmt.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/pwr_mgmt/nrf_pwr_mgmt.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/pwr_mgmt/nrf_pwr_mgmt.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/scheduler/app_scheduler.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/scheduler/app_scheduler.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/scheduler/app_scheduler.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/strerror/nrf_strerror.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/strerror/nrf_strerror.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/strerror/nrf_strerror.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/timer/app_timer.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/timer/app_timer.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/timer/app_timer.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/util/app_error.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/util/app_error.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/util/app_error.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/util/app_error_weak.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/util/app_error_weak.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/util/app_error_weak.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/util/app_util_platform.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/util/app_util_platform.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/util/app_util_platform.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/util/nrf_assert.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/util/nrf_assert.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/util/nrf_assert.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/softdevice/common/nrf_sdh.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/softdevice/common/nrf_sdh.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/softdevice/common/nrf_sdh.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/softdevice/common/nrf_sdh_ble.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/softdevice/common/nrf_sdh_ble.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/softdevice/common/nrf_sdh_ble.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/softdevice/common/nrf_sdh_soc.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/softdevice/common/nrf_sdh_soc.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/softdevice/common/nrf_sdh_soc.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/toolchain/gcc/gcc_startup_nrf52.S</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/toolchain/gcc/gcc_startup_nrf52.S</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/toolchain/gcc/gcc_startup_nrf52.S</locationURI>
 		</link>
 		<link>
 			<name>Includes/libraries/util/app_util.h</name>
@@ -303,32 +373,32 @@
 		<link>
 			<name>Driver/libraries/experimental_log/src/nrf_log_backend_rtt.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/experimental_log/src/nrf_log_backend_rtt.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/experimental_log/src/nrf_log_backend_rtt.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/experimental_log/src/nrf_log_backend_serial.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/experimental_log/src/nrf_log_backend_serial.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/experimental_log/src/nrf_log_backend_serial.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/experimental_log/src/nrf_log_backend_uart.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/experimental_log/src/nrf_log_backend_uart.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/experimental_log/src/nrf_log_backend_uart.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/experimental_log/src/nrf_log_default_backends.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/experimental_log/src/nrf_log_default_backends.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/experimental_log/src/nrf_log_default_backends.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/experimental_log/src/nrf_log_frontend.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/experimental_log/src/nrf_log_frontend.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/experimental_log/src/nrf_log_frontend.c</locationURI>
 		</link>
 		<link>
 			<name>Driver/libraries/experimental_log/src/nrf_log_str_formatter.c</name>
 			<type>1</type>
-			<locationURI>PARENT-6-PROJECT_LOC/components/libraries/experimental_log/src/nrf_log_str_formatter.c</locationURI>
+			<locationURI>PARENT-5-PROJECT_LOC/Debashis/Workspace/nRF5_SDK_14.2.0_17b948a/components/libraries/experimental_log/src/nrf_log_str_formatter.c</locationURI>
 		</link>
 	</linkedResources>
 </projectDescription>
