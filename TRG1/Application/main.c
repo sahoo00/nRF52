@@ -543,7 +543,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
     // For readability.
     ble_gap_evt_t const * p_gap_evt = &p_ble_evt->evt.gap_evt;
-    NRF_LOG_DEBUG("%d %d %d %d", p_ble_evt->header.evt_id, p_gap_evt->conn_handle, m_ble_smph.conn_handle,
+    NRF_LOG_DEBUG("ble_evt_handler 0x%x %d %d %d", p_ble_evt->header.evt_id, p_gap_evt->conn_handle, m_ble_smph.conn_handle,
     		m_ble_trg2.conn_handle);
     switch (p_ble_evt->header.evt_id)
     {
@@ -884,10 +884,7 @@ int main(void)
 
     NRF_LOG_INFO("TRG1 started.");
 
-    uint8_t pin = 18;
-	nrf_gpio_cfg_output(pin);
-	nrf_gpio_pin_write(pin, 1);
-	uint8_t button = 13;
+	uint8_t button = 18;
 	nrf_gpio_cfg_input(button, NRF_GPIO_PIN_PULLUP);
 
 	// Start scanning for peripherals and initiate connection to devices which
@@ -899,8 +896,8 @@ int main(void)
     {
     	//NRF_LOG_INFO("TRG1 %d", ready_to_send);
     	status = nrf_gpio_pin_read(button);
-    	send_data(&m_ble_smph, status);
-    	send_data(&m_ble_trg2, status);
+    	send_data(&m_ble_smph, 1 - status);
+    	send_data(&m_ble_trg2, 1 - status);
     	status++;
     	nrf_delay_ms(2000);
         NRF_LOG_FLUSH();
