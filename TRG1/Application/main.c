@@ -835,6 +835,12 @@ static void gatt_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
+static void disconnect(ble_trg1_t * p_ble_trg1) {
+	uint32_t      err_code;
+	err_code = sd_ble_gap_disconnect(p_ble_trg1->conn_handle,
+	                                 BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+	APP_ERROR_CHECK(err_code);
+}
 
 static uint32_t send_data(ble_trg1_t * p_ble_trg1, uint8_t status) {
 	if (!p_ble_trg1->ready_to_send) {
@@ -867,6 +873,9 @@ static uint32_t send_data(ble_trg1_t * p_ble_trg1, uint8_t status) {
     if (p_ble_trg1->ready_to_send > 0) {
     	p_ble_trg1->ready_to_send --;
     }
+    if (0 && p_ble_trg1->ready_to_send <= 0) {
+    	disconnect(p_ble_trg1);
+    }
     return NRF_SUCCESS;
 }
 
@@ -894,7 +903,7 @@ int main(void)
     uint8_t status = 0;
     for (;;)
     {
-    	//NRF_LOG_INFO("TRG1 %d", ready_to_send);
+    	NRF_LOG_INFO("TRG1 %d %d", m_ble_smph.ready_to_send, m_ble_trg2.ready_to_send);
     	status = nrf_gpio_pin_read(button);
     	send_data(&m_ble_smph, 1 - status);
     	send_data(&m_ble_trg2, 1 - status);

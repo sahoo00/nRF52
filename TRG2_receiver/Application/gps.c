@@ -22,83 +22,6 @@ char data_gps_array[GPS_MAX_DATA_LEN];
 uint16_t index_gps = 0;
 uint16_t error_gps = 0;
 
-struct nmea_position {
-	uint16_t degree;
-	uint8_t minute_value;
-	uint32_t minute_decimal;
-};
-
-struct nmea_time {
-	uint8_t hh;
-	uint8_t mm;
-	uint8_t ss_value;
-	uint8_t ss_decimal;
-};
-
-enum nmea_gll_type {
-	DTM,
-	GBQ,
-	GBS,
-	GGA,
-	GLL,
-	GLQ,
-	GNQ,
-	GNS,
-	GPQ,
-	GRS,
-	GSA,
-	GST,
-	GSV,
-	RMC,
-	TXT,
-	VLW,
-	VTG,
-	ZDA,
-};
-
-enum nmea_gll_status {
-    GLL_STATUS_DATA_VALID = 'A',
-    GLL_STATUS_DATA_NOT_VALID = 'V',
-};
-
-enum nmea_faa_mode {
-    FAA_MODE_AUTONOMOUS = 'A',
-    FAA_MODE_DIFFERENTIAL = 'D',
-    FAA_MODE_ESTIMATED = 'E',
-    FAA_MODE_MANUAL = 'M',
-    FAA_MODE_SIMULATED = 'S',
-    FAA_MODE_NOT_VALID = 'N',
-    FAA_MODE_PRECISE = 'P',
-};
-
-struct nmea_gll_data {
-	uint8_t type;
-	struct nmea_position latitude;
-	uint8_t ns;
-	struct nmea_position longitude;
-	uint8_t ew;
-	struct nmea_time utc;
-	uint8_t status;
-	uint8_t mode;
-	uint8_t checksum;
-};
-
-//$GPGGA,092725.00,4717.11399,N,00833.91590,E,1,08,1.01,499.6,M,48.0,M,,*5B
-struct nmea_gga_data {
-	uint8_t type;
-	struct nmea_time utc;
-	struct nmea_position latitude;
-	uint8_t ns;
-	struct nmea_position longitude;
-	uint8_t ew;
-	uint8_t quality;
-	uint8_t numSV;
-	float HDOP;
-	float alt;
-	uint8_t uAlt;
-	float sep;
-	uint8_t uSep;
-};
 
 struct nmea_gll_data init_gll_data() {
 	struct nmea_gll_data res;
@@ -116,6 +39,14 @@ struct nmea_gga_data init_gga_data() {
 
 struct nmea_gll_data gll_data;
 struct nmea_gga_data gga_data;
+
+struct nmea_gll_data * get_gll_data() {
+	return &gll_data;
+}
+
+struct nmea_gga_data * get_gga_data() {
+	return &gga_data;
+}
 
 static uint8_t hex2int(char c)
 {
@@ -145,7 +76,10 @@ static float read_float(const char* array, int size) {
 		if (array[i] == '.') {
 			decimal = 1;
 		}
-		if (array[i] != '.' || array[i] < '0' || array[i] > '9') {
+		if (array[i] == '-') {
+			scale = -1;
+		}
+		if (array[i] != '-' || array[i] != '.' || array[i] < '0' || array[i] > '9') {
 			//break;
 		}
 	}
@@ -172,8 +106,7 @@ struct nmea_gga_data parse_gga_data(const char* array, int size) {
 	if (index_cur != 7) {
 		return res;
 	}
-	res.type = GGA;
-
+	res.type = GBQ;
 	for (uint8_t i =0; i < size; i++) {
 		if (array[i] == ',' || array[i] == '*') {
 			indices[index_size] = i;
@@ -183,7 +116,10 @@ struct nmea_gga_data parse_gga_data(const char* array, int size) {
 	if (index_size != 15) {
 		return res;
 	}
-
+	res.type = GGA;
+    if ( (indices[1]+1) == indices[2] ) {
+    	res.type = GBQ;
+    }
 	uint8_t start = indices[0];
 	for (uint8_t i = start + 1; i < indices[1]; i++) {
 		if (i < start + 3) {
@@ -388,8 +324,12 @@ void uart_gps_event_handle(app_uart_evt_t * p_event)
             {
             	//data_gps_array[index] = '\0';
 				gga_data = parse_gga_data(data_gps_array, index);
-				if (gga_data.type == GGA) {
-					//NRF_LOG_INFO("%s", data_gps_array);
+
+				if (gga_data.type == GGA || gga_data.type == GBQ) {
+					NRF_LOG_INFO("%s", data_gps_array);
+					if (gga_data.type == GGA) {
+						send_gps_data();
+					}
 					index_gps = index;
 					nrf_delay_ms(2000); // This is important otherwise gps data doesn't work.
 					//app_uart_flush();

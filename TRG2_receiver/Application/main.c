@@ -231,7 +231,7 @@ int main(void)
     power_init();
 
 	if (1) {
-		trg2_state = TRG2_TRIGGER;
+		trg2_state = TRG2_SIGNAL;
 		uart_init();
 		buttons_leds_init();
 		db_discovery_init();
@@ -240,7 +240,7 @@ int main(void)
 		trg2_client_init();
 	}
 
-	if (0) {
+	if (1) {
 		gap_params_init();
 		services_init();
 		advertising_init();
@@ -257,7 +257,7 @@ int main(void)
 
     NRF_LOG_INFO("TRG2 receiver started.");
 
-    if (0) {
+    if (1) {
 		advertising_start();
     }
 
@@ -267,15 +267,15 @@ int main(void)
 
     for (;;)
     {
-		if (1) {
+		if (0) {
 			NRF_LOG_FLUSH();
 			//print_gps_info();
-			send_trigger();
+			//send_trigger();
 			if (NRF_LOG_PROCESS() == false) {
 				nrf_pwr_mgmt_run();
 			}
 		}
-		if (0) {
+		if (1) {
 			NRF_LOG_FLUSH();
 			if (NRF_LOG_PROCESS() == false) {
 				power_manage();

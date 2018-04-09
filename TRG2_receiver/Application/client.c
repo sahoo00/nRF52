@@ -17,6 +17,7 @@
 #include "math.h"
 
 #include "nrf_delay.h"
+#include "nrf_nvic.h"
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
@@ -52,6 +53,7 @@ static uint16_t m_ble_nus_max_data_len = BLE_GATT_ATT_MTU_DEFAULT - OPCODE_LENGT
 
 static uint32_t trg2c_index = 0;
 static uint8_t ready_to_send = 0;
+static uint32_t trg2c_event_start = 0;
 
 static uint8_t device_id[17] = {0x00, TRG2_DEVICE_ID};
 
@@ -163,8 +165,7 @@ static bool shutdown_handler(nrf_pwr_mgmt_evt_t event)
 {
     ret_code_t err_code;
 
-    err_code = bsp_indication_set(BSP_INDICATE_IDLE);
-    APP_ERROR_CHECK(err_code);
+    NRF_LOG_INFO("Shutdown handler");
 
     switch (event)
     {
@@ -192,8 +193,6 @@ void scan_start(void)
     ret = sd_ble_gap_scan_start(&m_scan_params);
     APP_ERROR_CHECK(ret);
 
-    ret = bsp_indication_set(BSP_INDICATE_SCANNING);
-    APP_ERROR_CHECK(ret);
 }
 
 void ble_trg2_on_db_disc_evt(ble_nus_c_t * p_ble_nus_c, ble_db_discovery_evt_t * p_evt)
@@ -202,6 +201,8 @@ void ble_trg2_on_db_disc_evt(ble_nus_c_t * p_ble_nus_c, ble_db_discovery_evt_t *
     memset(&nus_c_evt,0,sizeof(ble_nus_c_evt_t));
 
     ble_gatt_db_char_t * p_chars = p_evt->params.discovered_db.charateristics;
+
+    NRF_LOG_INFO("ble_trg2_on_db_disc_evt 0x%x", p_evt->evt_type);
 
     // Check if the NUS was discovered.
     if (    (p_evt->evt_type == BLE_DB_DISCOVERY_COMPLETE)
@@ -301,7 +302,7 @@ void uart_event_handle(app_uart_evt_t * p_event)
 {
     static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
     static uint16_t index = 0;
-    NRF_LOG_INFO("uart_event_handle: 0x%x", p_event->evt_type);
+    //NRF_LOG_INFO("uart_event_handle (client.c): 0x%x", p_event->evt_type);
     switch (p_event->evt_type)
     {
         /**@snippet [Handling data from UART] */
@@ -400,7 +401,8 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t con
             err_code = ble_nus_c_tx_notif_enable(p_ble_nus_c);
             APP_ERROR_CHECK(err_code);
             NRF_LOG_INFO("Connected to device with Safety Service.");
-            ready_to_send = 5;
+            ready_to_send = 2;
+            trg2c_event_trigger();
             break;
 
         case BLE_NUS_C_EVT_NUS_TX_EVT:
@@ -544,10 +546,17 @@ static bool is_uuid128_present(ble_uuid128_t               const * p_target_uuid
 }
 
 void trg2c_event_trigger() {
+	NRF_LOG_INFO("trg2c_event_trigger : %d", trg2c_trigger);
 	if (trg2c_trigger == 0) {
+		trg2c_event_start = trg2c_index;
 		schedule_test();
 	}
-	trg2c_trigger++;
+	else {
+		vibrate();
+	}
+	if (trg2c_index == trg2c_event_start || trg2c_index > (trg2c_event_start + 20)) {
+		trg2c_trigger++;
+	}
 }
 
 void trg2c_event_reset() {
@@ -573,8 +582,11 @@ void on_ble_central_evt(ble_evt_t const * p_ble_evt, void * p_context)
     ble_gap_evt_t const * p_gap_evt = &p_ble_evt->evt.gap_evt;
 	float score = 0;
 	uint16_t sum = 0;
-
-    NRF_LOG_INFO("on_ble_central_evt 0x%x", p_ble_evt->header.evt_id);
+	static uint16_t last_evt = 0;
+	if (last_evt != p_ble_evt->header.evt_id) {
+		NRF_LOG_INFO("on_ble_central_evt 0x%x", p_ble_evt->header.evt_id);
+	}
+    last_evt = p_ble_evt->header.evt_id;
     switch (p_ble_evt->header.evt_id)
     {
         case BLE_GAP_EVT_ADV_REPORT:
@@ -584,17 +596,18 @@ void on_ble_central_evt(ble_evt_t const * p_ble_evt, void * p_context)
             if (get_trg2_state() == TRG2_SIGNAL && is_uuid_present(&m_nus_uuid, p_adv_report)) {
             	sum = getValue(p_adv_report->rssi);
             	score = getScore(p_adv_report->rssi);
-            	trg2_signal_data_t sd = {trg2c_index, sum, p_adv_report->rssi, score};
-            	//printf("%ld %d %d %f\r\n", sd.trg2c_index, sd.sum, sd.rssi, sd.score);
+            	trg2_signal_data_t sd = {trg2c_trigger, trg2c_index, sum, p_adv_report->rssi, score};
+            	//NRF_LOG_INFO("%ld %d %d %f\r\n", sd.trg2c_index, sd.sum, sd.rssi, sd.score);
             	//if ((indexArray & 0x1) == 0) {
             		send_signal_data(&sd);
             	//}
             	trg2c_index++;
-            	if (score > 1000) {
+            	if (score > 500) {
             		trg2c_event_trigger();
             	}
             }
-            if (get_trg2_state() == TRG2_TRIGGER && is_uuid128_present(&m_trg2_uuid, p_adv_report)) {
+            if ( (get_trg2_state() == TRG2_TRIGGER ||  get_trg2_state() == TRG2_GPS)
+            		&& is_uuid128_present(&m_trg2_uuid, p_adv_report)) {
 
                 err_code = sd_ble_gap_connect(&p_adv_report->peer_addr,
                                               &m_scan_params,
@@ -603,8 +616,6 @@ void on_ble_central_evt(ble_evt_t const * p_ble_evt, void * p_context)
                 NRF_LOG_INFO("Found %ld\r\n", err_code);
 				if (err_code == NRF_SUCCESS) {
 					// scan is automatically stopped by the connect
-					err_code = bsp_indication_set(BSP_INDICATE_IDLE);
-					APP_ERROR_CHECK(err_code);
 					NRF_LOG_INFO("Connecting to target %02x%02x%02x%02x%02x%02x",
 							p_adv_report->peer_addr.addr[0],
 							p_adv_report->peer_addr.addr[1],
@@ -622,8 +633,6 @@ void on_ble_central_evt(ble_evt_t const * p_ble_evt, void * p_context)
             err_code = ble_nus_c_handles_assign(&m_ble_nus_c, p_ble_evt->evt.gap_evt.conn_handle, NULL);
             APP_ERROR_CHECK(err_code);
 
-            err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
-            APP_ERROR_CHECK(err_code);
 
             // start discovery of services. The NUS Client waits for a discovery result
             err_code = ble_db_discovery_start(&m_db_disc, p_ble_evt->evt.gap_evt.conn_handle);
@@ -712,10 +721,33 @@ uint32_t ble_trg2_init(ble_nus_c_t * p_ble_nus_c, ble_nus_c_init_t * p_ble_nus_c
     return ble_db_discovery_evt_register(&uart_uuid);
 }
 
+void trg2c_disconnect() {
+    uint32_t      err_code;
+    if (isClientConnected()) {
+    	err_code = sd_ble_gap_disconnect(m_ble_nus_c.conn_handle,
+    	                                 BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+    	APP_ERROR_CHECK(err_code);
+    }
+}
+
+uint8_t isClientConnected() {
+	return m_ble_nus_c.conn_handle != BLE_CONN_HANDLE_INVALID;
+}
+
+void reset_client() {
+	disable_gps();
+	set_trg2_state(TRG2_SIGNAL);
+	trg2c_event_reset();
+	trg2c_disconnect();
+	scan_start();
+}
+
 void send_trigger(void) {
 	if (!ready_to_send) return;
-	if (get_trg2_state() != TRG2_TRIGGER) return;
-	ready_to_send--;
+	if (get_trg2_state() != TRG2_TRIGGER) {
+		// reset
+		reset_client();
+	}
 
 	NRF_LOG_INFO("Sending trigger\r\n");
     uint32_t ret_val;
@@ -727,9 +759,48 @@ void send_trigger(void) {
 		}
 	} while (ret_val == NRF_ERROR_BUSY);
 	trg2c_event_reset();
-	nrf_delay_ms(1000);
+	nrf_delay_ms(100);
+	if (ready_to_send > 0) {
+		ready_to_send--;
+	}
+	if (ready_to_send > 0) {
+		schedule_test();
+	}
+	else {
+		set_trg2_state(TRG2_GPS);
+		ready_to_send = 2;
+		enable_gps();
+	}
 }
 
+void send_gps_data(void) {
+	if (!ready_to_send) return;
+	if (get_trg2_state() != TRG2_GPS) {
+		// reset
+		reset_client();
+	}
+
+
+	NRF_LOG_INFO("Sending GPS data\r\n");
+    uint32_t ret_val;
+	do {
+		struct nmea_gga_data * p_gga_data = get_gga_data();
+		trg2_gps_data_t gps_data = { {0x02, TRG2_DEVICE_ID}, p_gga_data[0] };
+		ret_val = ble_nus_c_string_send(&m_ble_nus_c, (uint8_t *)&gps_data, sizeof(trg2_gps_data_t));
+		if ((ret_val != NRF_ERROR_INVALID_STATE)
+				&& (ret_val != NRF_ERROR_BUSY)) {
+			APP_ERROR_CHECK(ret_val);
+		}
+	} while (ret_val == NRF_ERROR_BUSY);
+	trg2c_event_reset();
+	nrf_delay_ms(100);
+	if (ready_to_send > 0) {
+		ready_to_send--;
+	}
+	if (ready_to_send <= 0) {
+		reset_client();
+	}
+}
 
 
 /**@brief Function for handling events from the BSP module.
@@ -762,14 +833,15 @@ void bsp_event_handler(bsp_event_t event)
 }
 
 void test_trg2_handler(void * p_context) {
-	NRF_LOG_INFO("Test trg2 handler: %d", get_trg2_state());
+	NRF_LOG_INFO("Test trg2 handler: %d %d %d", get_trg2_state(), trg2c_trigger, ready_to_send);
 	if (get_trg2_state() == TRG2_SIGNAL && trg2c_trigger > 1) {
 		set_trg2_state(TRG2_TRIGGER);
-		trg2c_event_reset();
+		send_trigger();
 	}
 	if (get_trg2_state() == TRG2_TRIGGER) {
 		send_trigger();
 	}
+	trg2c_event_reset();
 }
 
 /**@brief Function for initializing the NUS Client. */
@@ -809,7 +881,11 @@ static void button_event_handler(uint8_t pin_no, uint8_t button_action)
         		}
         		else {
         			NRF_LOG_INFO("start: %d", button_state);
-        			vibrate();
+        			//set_trg2_state(TRG2_SIGNAL);
+        			//trg2c_event_reset();
+        			//trg2c_disconnect();
+        			//scan_start();
+        			sd_nvic_SystemReset();
         		}
         	}
             break;
@@ -891,7 +967,7 @@ void db_client_disc_handler(ble_db_discovery_evt_t * p_evt)
 void vibrate(void) {
 	nrf_gpio_cfg_output(VIB_MOT_TRG2_S_PIN);
 	nrf_gpio_pin_write(VIB_MOT_TRG2_S_PIN, 1);
-	nrf_delay_ms(15);
+	nrf_delay_ms(60);
 	nrf_gpio_pin_write(VIB_MOT_TRG2_S_PIN, 0);
 }
 

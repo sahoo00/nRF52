@@ -540,12 +540,16 @@ static void on_cmd_write(ble_nus_t * p_nus, ble_evt_t const * p_ble_evt)
     		set_trg2_state(TRG2_IDLE);
     	}
     	if (len > 0 && data[0] == 0x02) {
-    	    printf("#index sum rssi score\r\n");
-    		set_trg2_state(TRG2_SIGNAL);
+    	    reset_client();
     	}
     	if (len > 0 && data[0] == 0x03) {
     		NRF_LOG_INFO("TRG2C trigger through service")
     		trg2c_event_trigger();
+    	}
+    	if (len > 0 && data[0] == 0x04) {
+    		NRF_LOG_INFO("TRG2C GPS through service")
+    		set_trg2_state(TRG2_GPS);
+    		enable_gps();
     	}
     }
     if (   (p_evt_write->handle == trg2_signal_handles.cccd_handle)
@@ -568,8 +572,12 @@ static void on_cmd_write(ble_nus_t * p_nus, ble_evt_t const * p_ble_evt)
 void on_ble_peripheral_evt(ble_evt_t const * p_ble_evt, void * p_context)
 {
     uint32_t err_code;
+	static uint16_t last_evt = 0;
+	if (last_evt != p_ble_evt->header.evt_id) {
+		NRF_LOG_INFO("on_ble_peripheral_evt 0x%x", p_ble_evt->header.evt_id);
+	}
+    last_evt = p_ble_evt->header.evt_id;
 
-    NRF_LOG_INFO("on_ble_peripheral_evt 0x%x", p_ble_evt->header.evt_id);
     switch (p_ble_evt->header.evt_id)
     {
     	case BLE_GATTS_EVT_WRITE:
@@ -642,6 +650,7 @@ void on_ble_peripheral_evt(ble_evt_t const * p_ble_evt, void * p_context)
             break;
         case BLE_GAP_EVT_TIMEOUT:
         	NRF_LOG_INFO("GAP event timeout - need to restart ");
+        	advertising_start();
         	break;
 
         case BLE_EVT_USER_MEM_REQUEST:
