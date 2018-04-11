@@ -84,6 +84,7 @@
                               0xe8, 0x49, 0xa5, 0xcf, 0x00, 0x00, 0xba, 0xde}
 #define SMPH_UUID_SERVICE     0x0000
 #define TRG2_UUID_SERVICE     0x0001
+#define MN_UUID_SERVICE       0x0002
 #define TRG1_SAFETY_ALERT     0x0010
 #define TRG1_ALERT_STATUS     0x0011
 
@@ -149,6 +150,7 @@ struct ble_trg1_s
     ble_trg1_evt_handler_t evt_handler;  /**< Application event handler to be called when there is an event related to the LED Button service. */
     uint8_t                 uuid_type;    /**< UUID type. */
     uint8_t					ready_to_send;
+    uint8_t					max_num_send;
 };
 
 /**@brief LED Button Client initialization structure. */
@@ -315,13 +317,16 @@ void ble_trg1_on_ble_evt(ble_evt_t const * p_ble_evt, void * p_context)
 
 static ble_trg1_t m_ble_smph;
 static ble_trg1_t m_ble_trg2;
+static ble_trg1_t m_ble_mn;
 NRF_SDH_BLE_OBSERVER(m_ble_smph_obs, 2, ble_trg1_on_ble_evt, &m_ble_smph);
 NRF_SDH_BLE_OBSERVER(m_ble_trg2_obs, 2, ble_trg1_on_ble_evt, &m_ble_trg2);
+NRF_SDH_BLE_OBSERVER(m_ble_mn_obs, 2, ble_trg1_on_ble_evt, &m_ble_mn);
 NRF_BLE_GATT_DEF(m_gatt);                                       /**< GATT module instance. */
 BLE_DB_DISCOVERY_ARRAY_DEF(m_db_discovery, 2);                      /**< Database discovery module instances. */
 
 static char const m_target_smph[] = "Shanvi";     /**< Name of the device we try to connect to. This name is searched in the scan report data*/
 static char const m_target_trg2[] = "Sh_TRG2";     /**< Name of the device we try to connect to. This name is searched in the scan report data*/
+static char const m_target_mn[] = "Sh_MN";     /**< Name of the device we try to connect to. This name is searched in the scan report data*/
 
 /**@brief Parameters used when scanning. */
 static ble_gap_scan_params_t const m_scan_params =
@@ -460,6 +465,28 @@ static void trg2_evt_handler(ble_trg1_t * p_trg1, ble_trg1_evt_t * p_trg1_evt)
     }
 }
 
+static void mn_evt_handler(ble_trg1_t * p_trg1, ble_trg1_evt_t * p_trg1_evt)
+{
+    switch (p_trg1_evt->evt_type)
+    {
+        case BLE_TRG1_EVT_DISCOVERY_COMPLETE:
+        {
+            if (m_ble_mn.conn_handle == BLE_CONN_HANDLE_INVALID)
+            {
+                m_ble_mn.conn_handle = p_trg1_evt->conn_handle;
+                NRF_LOG_INFO("MN discovered on conn_handle 0x%x", m_ble_mn.conn_handle);
+                p_trg1->conn_handle = p_trg1_evt->conn_handle;
+                p_trg1->peer_trg1_db = p_trg1_evt->params.peer_db;
+            }
+        } break; // BLE_TRG1_EVT_DISCOVERY_COMPLETE
+
+        case BLE_TRG1_EVT_BUTTON_NOTIFICATION:
+        default:
+            // No implementation needed.
+            break;
+    }
+}
+
 /**@brief Function for handling the advertising report BLE event.
  *
  * @param[in] p_ble_evt  Bluetooth stack event.
@@ -506,14 +533,24 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
     {
         if (strlen(m_target_smph) != 0)
         {
-            if (memcmp(m_target_smph, dev_name.p_data, dev_name.data_len )== 0)
+            if (m_ble_smph.max_num_send > 0 &&
+            		memcmp(m_target_smph, dev_name.p_data, dev_name.data_len )== 0)
             {
                 do_connect = true;
             }
         }
         if (strlen(m_target_trg2) != 0)
         {
-            if (memcmp(m_target_trg2, dev_name.p_data, dev_name.data_len )== 0)
+            if (m_ble_trg2.max_num_send > 0 &&
+            		memcmp(m_target_trg2, dev_name.p_data, dev_name.data_len )== 0)
+            {
+                do_connect = true;
+            }
+        }
+        if (strlen(m_target_mn) != 0)
+        {
+            if (m_ble_mn.max_num_send > 0 &&
+            		memcmp(m_target_mn, dev_name.p_data, dev_name.data_len )== 0)
             {
                 do_connect = true;
             }
@@ -522,6 +559,8 @@ static void on_adv_report(const ble_evt_t * const p_ble_evt)
 
     if (do_connect)
     {
+    	NRF_LOG_INFO("Connecting to %d %s", dev_name.data_len, dev_name.p_data);
+    	NRF_LOG_HEXDUMP_INFO(dev_name.p_data, dev_name.data_len);
         // Initiate connection.
         err_code = sd_ble_gap_connect(peer_addr,
                                       &m_scan_params,
@@ -543,8 +582,16 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
     // For readability.
     ble_gap_evt_t const * p_gap_evt = &p_ble_evt->evt.gap_evt;
-    NRF_LOG_DEBUG("ble_evt_handler 0x%x %d %d %d", p_ble_evt->header.evt_id, p_gap_evt->conn_handle, m_ble_smph.conn_handle,
-    		m_ble_trg2.conn_handle);
+
+	static uint16_t last_evt = 0;
+	uint16_t cur_evt = p_ble_evt->header.evt_id + p_gap_evt->conn_handle +
+			m_ble_smph.conn_handle + m_ble_trg2.conn_handle + m_ble_mn.conn_handle;
+	if (last_evt != cur_evt) {
+	    NRF_LOG_DEBUG("ble_evt_handler 0x%x %d %d %d %d", p_ble_evt->header.evt_id,
+	    		p_gap_evt->conn_handle, m_ble_smph.conn_handle,
+	    		m_ble_trg2.conn_handle, m_ble_mn.conn_handle);
+	}
+    last_evt = cur_evt;
     switch (p_ble_evt->header.evt_id)
     {
         // Upon connection, check which peripheral has connected (HR or RSC), initiate DB
@@ -553,8 +600,9 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
         {
             NRF_LOG_INFO("Connected.");
             if (   (m_ble_smph.conn_handle  == BLE_CONN_HANDLE_INVALID)
-                           || (m_ble_trg2.conn_handle == BLE_CONN_HANDLE_INVALID)) {
-            	NRF_LOG_INFO("Attempt to find SMPH or TRG2 on conn_handle 0x%x", p_gap_evt->conn_handle);
+                           || (m_ble_trg2.conn_handle == BLE_CONN_HANDLE_INVALID)
+                        		   || (m_ble_mn.conn_handle == BLE_CONN_HANDLE_INVALID)) {
+            	NRF_LOG_INFO("Attempt to find SMPH, TRG2, or MN on conn_handle 0x%x", p_gap_evt->conn_handle);
             	err_code = ble_db_discovery_start(&m_db_discovery[0], p_gap_evt->conn_handle);
             	if (err_code == NRF_ERROR_BUSY)
             	{
@@ -572,25 +620,31 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
         // the LEDs status and start scanning again.
         case BLE_GAP_EVT_DISCONNECTED:
         {
-            if (p_gap_evt->conn_handle == m_ble_smph.conn_handle)
-            {
+            if (p_gap_evt->conn_handle == m_ble_smph.conn_handle) {
                 NRF_LOG_INFO("SMPH central disconnected (reason: %d)",
                              p_gap_evt->params.disconnected.reason);
 
                 m_ble_smph.conn_handle = BLE_CONN_HANDLE_INVALID;
                 m_ble_smph.ready_to_send = 0;
             }
-            if (p_gap_evt->conn_handle == m_ble_trg2.conn_handle)
-            {
+            if (p_gap_evt->conn_handle == m_ble_trg2.conn_handle) {
                 NRF_LOG_INFO("TRG2 central disconnected (reason: %d)",
                              p_gap_evt->params.disconnected.reason);
 
                 m_ble_trg2.conn_handle = BLE_CONN_HANDLE_INVALID;
                 m_ble_trg2.ready_to_send = 0;
             }
+            if (p_gap_evt->conn_handle == m_ble_mn.conn_handle) {
+                NRF_LOG_INFO("MN central disconnected (reason: %d)",
+                             p_gap_evt->params.disconnected.reason);
+
+                m_ble_mn.conn_handle = BLE_CONN_HANDLE_INVALID;
+                m_ble_mn.ready_to_send = 0;
+            }
 
             if (   (m_ble_smph.conn_handle == BLE_CONN_HANDLE_INVALID)
-                || (m_ble_trg2.conn_handle  == BLE_CONN_HANDLE_INVALID))
+                || (m_ble_trg2.conn_handle  == BLE_CONN_HANDLE_INVALID)
+				|| (m_ble_mn.conn_handle  == BLE_CONN_HANDLE_INVALID))
             {
                 // Start scanning
                 scan_start();
@@ -674,6 +728,7 @@ uint32_t ble_trg1_init(ble_trg1_t * p_ble_trg1, ble_trg1_init_t * p_ble_trg1_ini
     p_ble_trg1->conn_handle                    = BLE_CONN_HANDLE_INVALID;
     p_ble_trg1->evt_handler                    = p_ble_trg1_init->evt_handler;
     p_ble_trg1->ready_to_send                  = 0;
+    p_ble_trg1->max_num_send                   = 2;
 
     err_code = sd_ble_uuid_vs_add(&trg1_base_uuid, &p_ble_trg1->uuid_type);
     if (err_code != NRF_SUCCESS)
@@ -695,14 +750,19 @@ static void trg1_init(void)
     ret_code_t       err_code;
     ble_trg1_init_t smph_init_obj;
     ble_trg1_init_t trg2_init_obj;
+    ble_trg1_init_t mn_init_obj;
 
     smph_init_obj.evt_handler = smph_evt_handler;
     trg2_init_obj.evt_handler = trg2_evt_handler;
+    mn_init_obj.evt_handler = mn_evt_handler;
 
     err_code = ble_trg1_init(&m_ble_smph, &smph_init_obj, SMPH_UUID_SERVICE);
     APP_ERROR_CHECK(err_code);
 
     err_code = ble_trg1_init(&m_ble_trg2, &trg2_init_obj, TRG2_UUID_SERVICE);
+    APP_ERROR_CHECK(err_code);
+
+    err_code = ble_trg1_init(&m_ble_mn, &mn_init_obj, MN_UUID_SERVICE);
     APP_ERROR_CHECK(err_code);
 
 }
@@ -736,6 +796,9 @@ static void ble_stack_init(void)
 
 void ble_trg1_on_db_disc_evt(ble_trg1_t * p_ble_trg1, ble_db_discovery_evt_t const * p_evt, uint16_t uuid)
 {
+	 NRF_LOG_INFO("ble_trg1_on_db_disc_evt 0x%x 0x%x 0x%x %d %d", p_evt->evt_type,
+			 p_evt->params.discovered_db.srv_uuid.uuid, uuid,
+			 p_evt->params.discovered_db.srv_uuid.type, p_ble_trg1->uuid_type);
     // Check if the Safety Service was discovered.
     if (p_evt->evt_type == BLE_DB_DISCOVERY_COMPLETE &&
         (p_evt->params.discovered_db.srv_uuid.uuid == uuid) &&
@@ -771,7 +834,7 @@ void ble_trg1_on_db_disc_evt(ble_trg1_t * p_ble_trg1, ble_db_discovery_evt_t con
 			}
 		}
         p_ble_trg1->evt_handler(p_ble_trg1, &evt);
-        p_ble_trg1->ready_to_send = 5;
+        p_ble_trg1->ready_to_send = 1;
     }
 }
 
@@ -787,6 +850,7 @@ static void db_disc_handler(ble_db_discovery_evt_t * p_evt)
 {
     ble_trg1_on_db_disc_evt(&m_ble_smph, p_evt, SMPH_UUID_SERVICE);
     ble_trg1_on_db_disc_evt(&m_ble_trg2, p_evt, TRG2_UUID_SERVICE);
+    ble_trg1_on_db_disc_evt(&m_ble_mn, p_evt, MN_UUID_SERVICE);
 }
 
 
@@ -843,7 +907,7 @@ static void disconnect(ble_trg1_t * p_ble_trg1) {
 }
 
 static uint32_t send_data(ble_trg1_t * p_ble_trg1, uint8_t status) {
-	if (!p_ble_trg1->ready_to_send) {
+	if (p_ble_trg1->max_num_send <= 0) {
 		return NRF_ERROR_INVALID_STATE;
 	}
     VERIFY_PARAM_NOT_NULL(p_ble_trg1);
@@ -870,10 +934,11 @@ static uint32_t send_data(ble_trg1_t * p_ble_trg1, uint8_t status) {
     p_msg->type                                = WRITE_REQ;
 
     tx_buffer_process();
-    if (p_ble_trg1->ready_to_send > 0) {
-    	p_ble_trg1->ready_to_send --;
+    if (p_ble_trg1->max_num_send > 0) {
+    	p_ble_trg1->max_num_send --;
     }
-    if (0 && p_ble_trg1->ready_to_send <= 0) {
+    if (p_ble_trg1->max_num_send <= 0) {
+    	p_ble_trg1->ready_to_send = 0;
     	disconnect(p_ble_trg1);
     }
     return NRF_SUCCESS;
@@ -903,10 +968,12 @@ int main(void)
     uint8_t status = 0;
     for (;;)
     {
-    	NRF_LOG_INFO("TRG1 %d %d", m_ble_smph.ready_to_send, m_ble_trg2.ready_to_send);
+    	NRF_LOG_INFO("TRG1 %d %d %d", m_ble_smph.ready_to_send, m_ble_trg2.ready_to_send, m_ble_mn.ready_to_send);
+    	NRF_LOG_INFO("TRG1 %d %d %d", m_ble_smph.max_num_send, m_ble_trg2.max_num_send, m_ble_mn.max_num_send);
     	status = nrf_gpio_pin_read(button);
     	send_data(&m_ble_smph, 1 - status);
     	send_data(&m_ble_trg2, 1 - status);
+    	send_data(&m_ble_mn, 1 - status);
     	status++;
     	nrf_delay_ms(2000);
         NRF_LOG_FLUSH();
