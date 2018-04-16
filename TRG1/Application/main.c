@@ -66,6 +66,7 @@
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 
+#define TRG1_BUTTON						18
 #define SCAN_INTERVAL                   0x00A0                              /**< Determines scan interval in units of 0.625 millisecond. */
 #define SCAN_WINDOW                     0x0050                              /**< Determines scan window in units of 0.625 millisecond. */
 #define SCAN_TIMEOUT                    0x0000                              /**< Timout when scanning. 0x0000 disables timeout. */
@@ -96,7 +97,7 @@
 
 #define BLE_UUID_TRG1_SERVICE 0xbade
 
-#define TRG1_DEVICE_ID        0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+#define TRG1_DEVICE_ID        0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 static uint8_t device_id[17] = {0x00, TRG1_DEVICE_ID};
 
@@ -183,6 +184,8 @@ void trg1_disconnect() {
 void send_trigger_smph(void) {
 	NRF_LOG_INFO("Sending trigger SMPH\r\n");
     uint32_t ret_val;
+    uint8_t status = nrf_gpio_pin_read(TRG1_BUTTON);
+    device_id[0] = 1 - status;
 	do {
 		ret_val = ble_nus_c_string_send(&m_ble_smph_c, (uint8_t *)&device_id, sizeof(device_id));
 		if ((ret_val != NRF_ERROR_INVALID_STATE)
@@ -198,6 +201,8 @@ void send_trigger_smph(void) {
 void send_trigger_trg2(void) {
 	NRF_LOG_INFO("Sending trigger TRG2\r\n");
     uint32_t ret_val;
+    uint8_t status = nrf_gpio_pin_read(TRG1_BUTTON);
+    device_id[0] = 1 - status;
 	do {
 		ret_val = ble_nus_c_string_send(&m_ble_trg2_c, (uint8_t *)&device_id, sizeof(device_id));
 		if ((ret_val != NRF_ERROR_INVALID_STATE)
@@ -213,6 +218,8 @@ void send_trigger_trg2(void) {
 void send_trigger_mn(void) {
 	NRF_LOG_INFO("Sending trigger MN\r\n");
     uint32_t ret_val;
+    uint8_t status = nrf_gpio_pin_read(TRG1_BUTTON);
+    device_id[0] = 1 - status;
 	do {
 		ret_val = ble_nus_c_string_send(&m_ble_mn_c, (uint8_t *)&device_id, sizeof(device_id));
 		if ((ret_val != NRF_ERROR_INVALID_STATE)
@@ -774,6 +781,8 @@ int main(void)
 	gatt_init();
 	db_discovery_init();
 	trg1_client_init();
+
+	nrf_gpio_cfg_input(TRG1_BUTTON, NRF_GPIO_PIN_PULLUP);
 
 	scan_start();
     NRF_LOG_INFO("TRG1 started.");

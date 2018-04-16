@@ -37,24 +37,32 @@
 
 #define BLE_UUID_TRG2C1_SERVICE 0xbade
 
-#define TRG2_UUID_BASE        {0xc6, 0x1d, 0x93, 0x6e, 0x09, 0x03, 0x63, 0x8b, \
+#define SMPH_UUID_BASE        {0xc6, 0x1d, 0x93, 0x6e, 0x09, 0x03, 0x63, 0x8b, \
                               0xe8, 0x49, 0xa5, 0xcf, 0x00, 0x00, 0xba, 0xde}
 #define SMPH_UUID_SERVICE     0x0000
 #define TRG2_UUID_SERVICE     0x0001
+#define MN_UUID_SERVICE       0x0002
 #define TRG2_SAFETY_ALERT     0x0010
 #define TRG2_ALERT_STATUS     0x0011
 #define TRG2_CMD_CHARSTIC     0x0012
 #define TRG2_SIG_CHARSTIC     0x0013
+#define TRG2_GPS_CHARSTIC     0x0014
 
-#define TRG2_DEVICE_ID        0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+#define MN_UUID_BASE          {0xc6, 0x1d, 0x93, 0x6e, 0x09, 0x03, 0x63, 0x8b, \
+                              0xe8, 0x49, 0xa5, 0xcf, 0x02, 0x00, 0xba, 0xde}
+
+#define TRG2_DEVICE_ID        0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+#define TRG2_CKEY        	  "73b1ed59ebfdd3e3"
 
+#define MAX_HOPS_DATA 5
 
 enum trg2_state_type {
 	TRG2_IDLE,
  	TRG2_SIGNAL,
  	TRG2_TRIGGER,
- 	TRG2_GPS
+ 	TRG2_GPS,
+	TRG2_ROUTER,
 };
 
 typedef struct trg2_signal_data {
@@ -148,6 +156,59 @@ typedef struct trg2_gps_data {
 	struct nmea_gga_data gga_data;
 } trg2_gps_data_t;
 
+enum {
+	PKT_TRGN,
+	PKT_TRGC,
+	PKT_LOC,
+	PKT_ACK,
+	PKT_CMD
+};
+
+typedef struct sh_trg_packet {
+	uint8_t type;
+	uint8_t device_id[16];
+	int ckey;
+	uint8_t q_count;
+	uint8_t h_count;
+	uint8_t hops[MAX_HOPS_DATA];
+} sh_trg_packet_t;
+
+typedef struct sh_gps_packet {
+	uint8_t type;
+	uint8_t device_id[16];
+	float lat;
+	float lon;
+	float alt;
+	uint8_t q_count;
+	uint8_t h_count;
+	uint8_t hops[MAX_HOPS_DATA];
+} sh_gps_packet_t;
+
+typedef struct sh_ack_packet {
+	uint8_t type;
+	uint8_t device_id[16];
+	uint8_t q_count;
+	uint8_t h_count;
+	uint8_t hops[MAX_HOPS_DATA];
+} sh_ack_packet_t;
+
+typedef struct sh_info_packet {
+	uint8_t type;
+	long long device_id;
+	long long device_id_2;
+} sh_info_packet_t;
+
+
+typedef struct sh_packet {
+	union {
+		sh_trg_packet_t trgn;
+		sh_trg_packet_t trgc;
+		sh_gps_packet_t location;
+		sh_ack_packet_t ack;
+		sh_info_packet_t info;
+	};
+} sh_packet_t;
+
 uint8_t get_trg2_state();
 void set_trg2_state(uint8_t state);
 void schedule_test();
@@ -167,6 +228,7 @@ void enable_gps();
 void send_gps_data(void);
 struct nmea_gll_data * get_gll_data();
 struct nmea_gga_data * get_gga_data();
+sh_gps_packet_t get_sh_gps_packet();
 
 void on_ble_peripheral_evt(ble_evt_t const * p_ble_evt, void * p_context);
 void on_ble_central_evt(ble_evt_t const * p_ble_evt, void * p_context);
@@ -177,10 +239,16 @@ void gatt_evt_handler(nrf_ble_gatt_t * p_gatt, nrf_ble_gatt_evt_t const * p_evt)
 void scan_start(void);
 void buttons_leds_init(void);
 void trg2_client_init(void);
-void send_nus_c_data(void * p, uint16_t len);
-uint8_t isClientConnected();
+void send_smph_c_data(void * p, uint16_t len);
+void send_mn_c_data(void * p, uint16_t len);
+uint8_t isSMPHConnected();
+uint8_t isMNConnected();
 void reset_client();
+void trg2c_disconnect_smph();
+void trg2c_disconnect_mn();
 void trg2c_disconnect();
+uint8_t get_smph_hop();
+uint8_t get_mn_hop();
 
 void gap_params_init(void);
 void advertising_init(void);
@@ -189,6 +257,11 @@ void advertising_start();
 void conn_params_init(void);
 void send_nus_data(void * p, uint16_t len);
 void send_signal_data(trg2_signal_data_t * data);
+void send_gps_notify_data(uint8_t * data, uint16_t len);
+bool gps_notification_enabled();
 
 void print_bytes(const void * p, int len);
 
+void processData(const uint8_t *data, int len);
+void router_start();
+void router(void * p_context);

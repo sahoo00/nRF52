@@ -48,6 +48,22 @@ struct nmea_gga_data * get_gga_data() {
 	return &gga_data;
 }
 
+sh_gps_packet_t get_sh_gps_packet() {
+	sh_gps_packet_t loc = { PKT_LOC, {TRG2_DEVICE_ID}, 0, 0, 0, 0, 0, {0}};
+	float alt = gga_data.alt;
+	float lat = gga_data.latitude.degree +
+			gga_data.latitude.minute_value/60.0 + gga_data.latitude.minute_decimal/100000.0/60.0;
+	float lon = gga_data.longitude.degree +
+			gga_data.longitude.minute_value/60.0 + gga_data.longitude.minute_decimal/100000.0/60.0;
+	loc.lat = lat;
+	loc.lon = lon;
+	loc.alt = alt;
+	loc.q_count = 1;
+	loc.h_count = 1;
+	loc.hops[0] = loc.device_id[0];
+	return loc;
+}
+
 static uint8_t hex2int(char c)
 {
     if (c >= '0' && c <= '9')
@@ -322,19 +338,21 @@ void uart_gps_event_handle(app_uart_evt_t * p_event)
 
             if ((data_gps_array[index - 1] == '\n') || (index >= (GPS_MAX_DATA_LEN)))
             {
-            	//data_gps_array[index] = '\0';
+            	data_gps_array[index] = '\0';
 				gga_data = parse_gga_data(data_gps_array, index);
-
 				if (gga_data.type == GGA || gga_data.type == GBQ) {
-					NRF_LOG_INFO("%s", data_gps_array);
-					if (gga_data.type == GGA) {
+					//NRF_LOG_INFO("%s", data_gps_array);
+					send_gps_notify_data((uint8_t*)&data_gps_array[0], 30);
+
+					if (!gps_notification_enabled() && gga_data.type == GGA) {
 						send_gps_data();
 					}
 					index_gps = index;
-					nrf_delay_ms(2000); // This is important otherwise gps data doesn't work.
+					//nrf_delay_ms(2000); // This is important otherwise gps data doesn't work.
 					//app_uart_flush();
 					//app_uart_close();
 				}
+            	NRF_LOG_INFO("%d %s", index, data_gps_array);
 				if (0) {
 					gll_data = parse_gll_data(data_gps_array, index);
 					if (gll_data.type == GLL) {

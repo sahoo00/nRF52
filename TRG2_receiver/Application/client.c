@@ -46,7 +46,8 @@ uint8_t button_state = 0;
 APP_TIMER_DEF(m_led_timer_id);
 APP_TIMER_DEF(m_trg_timer_id);
 
-BLE_NUS_C_DEF(m_ble_nus_c);                                             /**< BLE NUS service client instance. */
+BLE_NUS_C_DEF(m_ble_smph_c);                                             /**< BLE NUS service client instance. */
+BLE_NUS_C_DEF(m_ble_mn_c);                                             /**< BLE NUS service client instance. */
 BLE_DB_DISCOVERY_DEF(m_db_disc);                                        /**< DB discovery module instance. */
 
 static uint16_t m_ble_nus_max_data_len = BLE_GATT_ATT_MTU_DEFAULT - OPCODE_LENGTH - HANDLE_LENGTH; /**< Maximum length of data (in bytes) that can be transmitted to the peer by the Nordic UART service module. */
@@ -89,7 +90,10 @@ static ble_uuid_t const m_nus_uuid =
     .type = NUS_SERVICE_UUID_TYPE
 };
 
-static ble_uuid128_t const m_trg2_uuid = {TRG2_UUID_BASE};
+static ble_uuid128_t const m_smph_uuid = {SMPH_UUID_BASE};
+static ble_uuid128_t const m_mn_uuid = {MN_UUID_BASE};
+static uint8_t m_smph_addr[BLE_GAP_ADDR_LEN];
+static uint8_t m_mn_addr[BLE_GAP_ADDR_LEN];
 
 int8_t array[64];
 uint16_t indexArray = 0;
@@ -97,6 +101,9 @@ uint16_t countArray = 0;
 uint16_t totalArray = 50;
 uint16_t window = 5;
 uint8_t trg2c_trigger = 0;
+
+uint8_t get_smph_hop() { return m_smph_addr[0]; }
+uint8_t get_mn_hop() { return m_mn_addr[0]; }
 
 static uint16_t getValue(int8_t rssi) {
     array[indexArray] = rssi;
@@ -188,25 +195,23 @@ void scan_start(void)
 {
     ret_code_t ret;
 
-    NRF_LOG_INFO("scan_start");
-
     ret = sd_ble_gap_scan_start(&m_scan_params);
+    NRF_LOG_INFO("scan_start: %d", ret);
     APP_ERROR_CHECK(ret);
 
 }
 
-void ble_trg2_on_db_disc_evt(ble_nus_c_t * p_ble_nus_c, ble_db_discovery_evt_t * p_evt)
-{
+void ble_trg2_on_db_disc_evt(ble_nus_c_t * p_ble_nus_c, ble_db_discovery_evt_t * p_evt, uint16_t uuid) {
     ble_nus_c_evt_t nus_c_evt;
     memset(&nus_c_evt,0,sizeof(ble_nus_c_evt_t));
 
     ble_gatt_db_char_t * p_chars = p_evt->params.discovered_db.charateristics;
 
-    NRF_LOG_INFO("ble_trg2_on_db_disc_evt 0x%x", p_evt->evt_type);
+    NRF_LOG_INFO("ble_trg1_on_db_disc_evt 0x%x", p_evt->evt_type);
 
     // Check if the NUS was discovered.
     if (    (p_evt->evt_type == BLE_DB_DISCOVERY_COMPLETE)
-        &&  (p_evt->params.discovered_db.srv_uuid.uuid == SMPH_UUID_SERVICE)
+        &&  (p_evt->params.discovered_db.srv_uuid.uuid == uuid)
         &&  (p_evt->params.discovered_db.srv_uuid.type == p_ble_nus_c->uuid_type))
     {
         for (uint32_t i = 0; i < p_evt->params.discovered_db.char_count; i++)
@@ -241,7 +246,7 @@ void ble_trg2_on_db_disc_evt(ble_nus_c_t * p_ble_nus_c, ble_db_discovery_evt_t *
  * @details This function takes a list of characters of length data_len and prints the characters out on UART.
  *          If @ref ECHOBACK_BLE_UART_DATA is set, the data is sent back to sender.
  */
-static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_len)
+static void ble_nus_chars_received_uart_print(ble_nus_c_t * p_ble_nus_c, uint8_t * p_data, uint16_t data_len)
 {
     ret_code_t ret_val;
 
@@ -269,7 +274,7 @@ static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_le
         // Send data back to peripheral.
         do
         {
-            ret_val = ble_nus_c_string_send(&m_ble_nus_c, p_data, data_len);
+            ret_val = ble_nus_c_string_send(p_ble_nus_c, p_data, data_len);
             if ((ret_val != NRF_SUCCESS) && (ret_val != NRF_ERROR_BUSY))
             {
                 NRF_LOG_ERROR("Failed sending NUS message. Error 0x%x. ", ret_val);
@@ -279,12 +284,25 @@ static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_le
     }
 }
 
-void send_nus_c_data(void * p, uint16_t len) {
+void send_smph_c_data(void * p, uint16_t len) {
     uint32_t ret_val;
     do
     {
     	uint16_t length = len;
-        ret_val = ble_nus_c_string_send(&m_ble_nus_c, p, length);
+        ret_val = ble_nus_c_string_send(&m_ble_smph_c, p, length);
+        if ( (ret_val != NRF_ERROR_INVALID_STATE) && (ret_val != NRF_ERROR_BUSY) )
+        {
+            APP_ERROR_CHECK(ret_val);
+        }
+    } while (ret_val == NRF_ERROR_BUSY);
+}
+
+void send_mn_c_data(void * p, uint16_t len) {
+    uint32_t ret_val;
+    do
+    {
+    	uint16_t length = len;
+        ret_val = ble_nus_c_string_send(&m_ble_mn_c, p, length);
         if ( (ret_val != NRF_ERROR_INVALID_STATE) && (ret_val != NRF_ERROR_BUSY) )
         {
             APP_ERROR_CHECK(ret_val);
@@ -315,7 +333,7 @@ void uart_event_handle(app_uart_evt_t * p_event)
                 NRF_LOG_DEBUG("Ready to send data over BLE NUS");
                 NRF_LOG_HEXDUMP_DEBUG(data_array, index);
 #if 0
-                send_nus_c_data(data_array, index);
+                send_smph_c_data(data_array, index);
 #else
                 send_nus_data(data_array, index);
 #endif
@@ -326,11 +344,11 @@ void uart_event_handle(app_uart_evt_t * p_event)
 
         /**@snippet [Handling data from UART] */
         case APP_UART_COMMUNICATION_ERROR:
-            NRF_LOG_ERROR("Communication error occurred while handling UART. %d", p_event->data.error_communication);
+            //NRF_LOG_ERROR("Communication error occurred while handling UART. %d", p_event->data.error_communication);
             break;
 
         case APP_UART_FIFO_ERROR:
-            NRF_LOG_ERROR("Error occurred in FIFO module used by UART. %d", p_event->data.error_code);
+            //NRF_LOG_ERROR("Error occurred in FIFO module used by UART. %d", p_event->data.error_code);
             break;
 
         default:
@@ -386,32 +404,68 @@ void uart_init(void)
  */
 
 /**@snippet [Handling events from the ble_nus_c module] */
-static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t const * p_ble_nus_evt)
+static void ble_smph_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t const * p_ble_nus_evt)
 {
     ret_code_t err_code;
 
-    NRF_LOG_INFO("ble_nus_c_evt_handler 0x%x", p_ble_nus_evt->evt_type);
+    NRF_LOG_INFO("ble_smph_c_evt_handler 0x%x", p_ble_nus_evt->evt_type);
     switch (p_ble_nus_evt->evt_type)
     {
         case BLE_NUS_C_EVT_DISCOVERY_COMPLETE:
-            NRF_LOG_INFO("Discovery complete.");
+            NRF_LOG_INFO("Discovery complete. SMPH");
             err_code = ble_nus_c_handles_assign(p_ble_nus_c, p_ble_nus_evt->conn_handle, &p_ble_nus_evt->handles);
             APP_ERROR_CHECK(err_code);
 
             err_code = ble_nus_c_tx_notif_enable(p_ble_nus_c);
             APP_ERROR_CHECK(err_code);
             NRF_LOG_INFO("Connected to device with Safety Service.");
-            ready_to_send = 2;
-            trg2c_event_trigger();
+            if (get_trg2_state() == TRG2_TRIGGER) {
+            	ready_to_send = 2;
+            	send_trigger();
+            }
             break;
 
         case BLE_NUS_C_EVT_NUS_TX_EVT:
-            ble_nus_chars_received_uart_print(p_ble_nus_evt->p_data, p_ble_nus_evt->data_len);
+            ble_nus_chars_received_uart_print(p_ble_nus_c, p_ble_nus_evt->p_data, p_ble_nus_evt->data_len);
             break;
 
         case BLE_NUS_C_EVT_DISCONNECTED:
-            NRF_LOG_INFO("Disconnected.");
-            ready_to_send = 0;
+            NRF_LOG_INFO("Disconnected. SMPH");
+            //ready_to_send = 0;
+            //scan_start();
+            break;
+    }
+}
+
+/**@snippet [Handling events from the ble_nus_c module] */
+static void ble_mn_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t const * p_ble_nus_evt)
+{
+    ret_code_t err_code;
+
+    NRF_LOG_INFO("ble_mn_c_evt_handler 0x%x", p_ble_nus_evt->evt_type);
+    switch (p_ble_nus_evt->evt_type)
+    {
+        case BLE_NUS_C_EVT_DISCOVERY_COMPLETE:
+            NRF_LOG_INFO("Discovery complete. MN");
+            err_code = ble_nus_c_handles_assign(p_ble_nus_c, p_ble_nus_evt->conn_handle, &p_ble_nus_evt->handles);
+            APP_ERROR_CHECK(err_code);
+
+            err_code = ble_nus_c_tx_notif_enable(p_ble_nus_c);
+            APP_ERROR_CHECK(err_code);
+            NRF_LOG_INFO("Connected to device with Safety Service.");
+            if (get_trg2_state() == TRG2_TRIGGER) {
+            	ready_to_send = 2;
+            	send_trigger();
+            }
+            break;
+
+        case BLE_NUS_C_EVT_NUS_TX_EVT:
+            ble_nus_chars_received_uart_print(p_ble_nus_c, p_ble_nus_evt->p_data, p_ble_nus_evt->data_len);
+            break;
+
+        case BLE_NUS_C_EVT_DISCONNECTED:
+            NRF_LOG_INFO("Disconnected. MN");
+            //ready_to_send = 0;
             //scan_start();
             break;
     }
@@ -545,6 +599,12 @@ static bool is_uuid128_present(ble_uuid128_t               const * p_target_uuid
     return false;
 }
 
+static bool is_uuid128_present_any(ble_gap_evt_adv_report_t const * p_adv_report) {
+	return is_uuid128_present(&m_smph_uuid, p_adv_report) ||
+			is_uuid128_present(&m_mn_uuid, p_adv_report);
+}
+
+
 void trg2c_event_trigger() {
 	NRF_LOG_INFO("trg2c_event_trigger : %d", trg2c_trigger);
 	if (trg2c_trigger == 0) {
@@ -602,12 +662,13 @@ void on_ble_central_evt(ble_evt_t const * p_ble_evt, void * p_context)
             		send_signal_data(&sd);
             	//}
             	trg2c_index++;
-            	if (score > 500) {
+            	if (score > 700) {
             		trg2c_event_trigger();
             	}
             }
-            if ( (get_trg2_state() == TRG2_TRIGGER ||  get_trg2_state() == TRG2_GPS)
-            		&& is_uuid128_present(&m_trg2_uuid, p_adv_report)) {
+            if ( (get_trg2_state() == TRG2_TRIGGER ||  get_trg2_state() == TRG2_GPS ||
+            		get_trg2_state() == TRG2_ROUTER) &&
+            		is_uuid128_present_any(p_adv_report) ) {
 
                 err_code = sd_ble_gap_connect(&p_adv_report->peer_addr,
                                               &m_scan_params,
@@ -623,6 +684,12 @@ void on_ble_central_evt(ble_evt_t const * p_ble_evt, void * p_context)
 							p_adv_report->peer_addr.addr[3],
 							p_adv_report->peer_addr.addr[4],
 							p_adv_report->peer_addr.addr[5]);
+					if (is_uuid128_present(&m_smph_uuid, p_adv_report)) {
+						memcpy(m_smph_addr, p_adv_report->peer_addr.addr, BLE_GAP_ADDR_LEN);
+					}
+					if (is_uuid128_present(&m_mn_uuid, p_adv_report)) {
+						memcpy(m_mn_addr, p_adv_report->peer_addr.addr, BLE_GAP_ADDR_LEN);
+					}
 				}
             }
         }
@@ -630,15 +697,22 @@ void on_ble_central_evt(ble_evt_t const * p_ble_evt, void * p_context)
 
         case BLE_GAP_EVT_CONNECTED:
             NRF_LOG_INFO("Connected to target");
-            err_code = ble_nus_c_handles_assign(&m_ble_nus_c, p_ble_evt->evt.gap_evt.conn_handle, NULL);
-            APP_ERROR_CHECK(err_code);
+            //nrf_delay_ms(600);
+            /*err_code = ble_nus_c_handles_assign(&m_ble_smph_c, p_ble_evt->evt.gap_evt.conn_handle, NULL);
+            APP_ERROR_CHECK(err_code); */
 
-
+            // Discover peer's services.
+            memset(&m_db_disc, 0x00, sizeof(m_db_disc));
             // start discovery of services. The NUS Client waits for a discovery result
             err_code = ble_db_discovery_start(&m_db_disc, p_ble_evt->evt.gap_evt.conn_handle);
+            NRF_LOG_INFO("Starting discovery: %d", err_code);
             APP_ERROR_CHECK(err_code);
             break;
-
+        case BLE_GAP_EVT_DISCONNECTED:
+        	NRF_LOG_INFO("Disconnected from target");
+        	memset(&m_db_disc, 0x00, sizeof(m_db_disc));
+        	scan_start();
+        	break;
         case BLE_GAP_EVT_TIMEOUT:
             if (p_gap_evt->params.timeout.src == BLE_GAP_TIMEOUT_SRC_SCAN)
             {
@@ -697,41 +771,41 @@ void on_ble_central_evt(ble_evt_t const * p_ble_evt, void * p_context)
         default:
             break;
     }
+
 }
 
-uint32_t ble_trg2_init(ble_nus_c_t * p_ble_nus_c, ble_nus_c_init_t * p_ble_nus_c_init)
-{
-    uint32_t      err_code;
-    ble_uuid_t    uart_uuid;
 
-    VERIFY_PARAM_NOT_NULL(p_ble_nus_c);
-    VERIFY_PARAM_NOT_NULL(p_ble_nus_c_init);
-
-    err_code = sd_ble_uuid_vs_add(&m_trg2_uuid, &p_ble_nus_c->uuid_type);
-    VERIFY_SUCCESS(err_code);
-
-    uart_uuid.type = p_ble_nus_c->uuid_type;
-    uart_uuid.uuid = SMPH_UUID_SERVICE;
-
-    p_ble_nus_c->conn_handle           = BLE_CONN_HANDLE_INVALID;
-    p_ble_nus_c->evt_handler           = p_ble_nus_c_init->evt_handler;
-    p_ble_nus_c->handles.nus_tx_handle = BLE_GATT_HANDLE_INVALID;
-    p_ble_nus_c->handles.nus_rx_handle = BLE_GATT_HANDLE_INVALID;
-
-    return ble_db_discovery_evt_register(&uart_uuid);
+uint8_t isSMPHConnected() {
+	return m_ble_smph_c.conn_handle != BLE_CONN_HANDLE_INVALID;
+}
+uint8_t isMNConnected() {
+	return m_ble_mn_c.conn_handle != BLE_CONN_HANDLE_INVALID;
+}
+uint8_t isConnected() {
+	return isSMPHConnected() || isMNConnected();
 }
 
-void trg2c_disconnect() {
+void trg2c_disconnect_smph() {
     uint32_t      err_code;
-    if (isClientConnected()) {
-    	err_code = sd_ble_gap_disconnect(m_ble_nus_c.conn_handle,
+    if (isSMPHConnected()) {
+    	err_code = sd_ble_gap_disconnect(m_ble_smph_c.conn_handle,
     	                                 BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+    	NRF_LOG_INFO("SMPH disconnect: %d", err_code);
     	APP_ERROR_CHECK(err_code);
     }
 }
-
-uint8_t isClientConnected() {
-	return m_ble_nus_c.conn_handle != BLE_CONN_HANDLE_INVALID;
+void trg2c_disconnect_mn() {
+    uint32_t      err_code;
+    if (isMNConnected()) {
+        err_code = sd_ble_gap_disconnect(m_ble_mn_c.conn_handle,
+        	                                BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+        NRF_LOG_INFO("MN disconnect: %d", err_code);
+        APP_ERROR_CHECK(err_code);
+    }
+}
+void trg2c_disconnect() {
+	trg2c_disconnect_smph();
+	trg2c_disconnect_mn();
 }
 
 void reset_client() {
@@ -742,22 +816,47 @@ void reset_client() {
 	scan_start();
 }
 
-void send_trigger(void) {
-	if (!ready_to_send) return;
-	if (get_trg2_state() != TRG2_TRIGGER) {
-		// reset
-		reset_client();
+void send_trigger_smph(void) {
+	if (!isSMPHConnected()) {
+		return;
 	}
-
-	NRF_LOG_INFO("Sending trigger\r\n");
+	NRF_LOG_INFO("Sending trigger SMPH\r\n");
     uint32_t ret_val;
 	do {
-		ret_val = ble_nus_c_string_send(&m_ble_nus_c, (uint8_t *)&device_id, sizeof(device_id));
+		ret_val = ble_nus_c_string_send(&m_ble_smph_c, (uint8_t *)&device_id, sizeof(device_id));
 		if ((ret_val != NRF_ERROR_INVALID_STATE)
 				&& (ret_val != NRF_ERROR_BUSY)) {
 			APP_ERROR_CHECK(ret_val);
 		}
 	} while (ret_val == NRF_ERROR_BUSY);
+}
+void send_trigger_mn(void) {
+	if (!isMNConnected()) {
+		return;
+	}
+	NRF_LOG_INFO("Sending trigger MN\r\n");
+    uint32_t ret_val;
+	do {
+		ret_val = ble_nus_c_string_send(&m_ble_mn_c, (uint8_t *)&device_id, sizeof(device_id));
+		if ((ret_val != NRF_ERROR_INVALID_STATE)
+				&& (ret_val != NRF_ERROR_BUSY)) {
+			APP_ERROR_CHECK(ret_val);
+		}
+	} while (ret_val == NRF_ERROR_BUSY);
+}
+
+
+void send_trigger(void) {
+
+	NRF_LOG_INFO("Sending trigger %d %d\r\n", ready_to_send, get_trg2_state());
+	NRF_LOG_FLUSH();
+	if (!ready_to_send) return;
+	if (get_trg2_state() != TRG2_TRIGGER) {
+		// reset
+		reset_client();
+	}
+	send_trigger_smph();
+	send_trigger_mn();
 	trg2c_event_reset();
 	nrf_delay_ms(100);
 	if (ready_to_send > 0) {
@@ -773,25 +872,59 @@ void send_trigger(void) {
 	}
 }
 
+void send_gps_data_smph() {
+	if (!isSMPHConnected()) {
+		return;
+	}
+	NRF_LOG_INFO("Sending GPS data SMPH\r\n");
+    uint32_t ret_val;
+	do {
+		/*
+		struct nmea_gga_data * p_gga_data = get_gga_data();
+		trg2_gps_data_t gps_data = { {0x02, TRG2_DEVICE_ID}, p_gga_data[0] };
+		*/
+		sh_gps_packet_t loc = get_sh_gps_packet();
+		ret_val = ble_nus_c_string_send(&m_ble_smph_c, (uint8_t *)&loc, sizeof(loc));
+		if ((ret_val != NRF_ERROR_INVALID_STATE)
+				&& (ret_val != NRF_ERROR_BUSY)) {
+			APP_ERROR_CHECK(ret_val);
+		}
+	} while (ret_val == NRF_ERROR_BUSY);
+}
+void send_gps_data_mn() {
+	if (!isMNConnected()) {
+		return;
+	}
+	NRF_LOG_INFO("Sending GPS data MN\r\n");
+    uint32_t ret_val;
+	do {
+		/*
+		struct nmea_gga_data * p_gga_data = get_gga_data();
+		trg2_gps_data_t gps_data = { {0x02, TRG2_DEVICE_ID}, p_gga_data[0] };
+		*/
+		sh_gps_packet_t loc = get_sh_gps_packet();
+		ret_val = ble_nus_c_string_send(&m_ble_mn_c, (uint8_t *)&loc, sizeof(loc));
+		if ((ret_val != NRF_ERROR_INVALID_STATE)
+				&& (ret_val != NRF_ERROR_BUSY)) {
+			APP_ERROR_CHECK(ret_val);
+		}
+	} while (ret_val == NRF_ERROR_BUSY);
+}
+
 void send_gps_data(void) {
+	if (!isConnected()) {
+		scan_start();
+		return;
+	}
 	if (!ready_to_send) return;
 	if (get_trg2_state() != TRG2_GPS) {
 		// reset
 		reset_client();
 	}
 
+	send_gps_data_smph();
+	send_gps_data_mn();
 
-	NRF_LOG_INFO("Sending GPS data\r\n");
-    uint32_t ret_val;
-	do {
-		struct nmea_gga_data * p_gga_data = get_gga_data();
-		trg2_gps_data_t gps_data = { {0x02, TRG2_DEVICE_ID}, p_gga_data[0] };
-		ret_val = ble_nus_c_string_send(&m_ble_nus_c, (uint8_t *)&gps_data, sizeof(trg2_gps_data_t));
-		if ((ret_val != NRF_ERROR_INVALID_STATE)
-				&& (ret_val != NRF_ERROR_BUSY)) {
-			APP_ERROR_CHECK(ret_val);
-		}
-	} while (ret_val == NRF_ERROR_BUSY);
 	trg2c_event_reset();
 	nrf_delay_ms(100);
 	if (ready_to_send > 0) {
@@ -819,7 +952,7 @@ void bsp_event_handler(bsp_event_t event)
             break;
 
         case BSP_EVENT_DISCONNECT:
-            err_code = sd_ble_gap_disconnect(m_ble_nus_c.conn_handle,
+            err_code = sd_ble_gap_disconnect(m_ble_smph_c.conn_handle,
                                              BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
             if (err_code != NRF_ERROR_INVALID_STATE)
             {
@@ -844,15 +977,42 @@ void test_trg2_handler(void * p_context) {
 	trg2c_event_reset();
 }
 
+uint32_t ble_trg2_init(ble_nus_c_t * p_ble_nus_c, ble_nus_c_init_t * p_ble_nus_c_init,
+		const ble_uuid128_t * uuid_base, const uint16_t uuid)
+{
+    uint32_t      err_code;
+    ble_uuid_t    uart_uuid;
+
+    VERIFY_PARAM_NOT_NULL(p_ble_nus_c);
+    VERIFY_PARAM_NOT_NULL(p_ble_nus_c_init);
+
+    err_code = sd_ble_uuid_vs_add(uuid_base, &p_ble_nus_c->uuid_type);
+    VERIFY_SUCCESS(err_code);
+
+    uart_uuid.type = p_ble_nus_c->uuid_type;
+    uart_uuid.uuid = uuid;
+
+    p_ble_nus_c->conn_handle           = BLE_CONN_HANDLE_INVALID;
+    p_ble_nus_c->evt_handler           = p_ble_nus_c_init->evt_handler;
+    p_ble_nus_c->handles.nus_tx_handle = BLE_GATT_HANDLE_INVALID;
+    p_ble_nus_c->handles.nus_rx_handle = BLE_GATT_HANDLE_INVALID;
+
+    return ble_db_discovery_evt_register(&uart_uuid);
+}
+
 /**@brief Function for initializing the NUS Client. */
 void trg2_client_init(void)
 {
     ret_code_t       err_code;
-    ble_nus_c_init_t init;
+    ble_nus_c_init_t init_smph;
+    ble_nus_c_init_t init_mn;
 
-    init.evt_handler = ble_nus_c_evt_handler;
+    init_smph.evt_handler = ble_smph_c_evt_handler;
+    init_mn.evt_handler = ble_mn_c_evt_handler;
 
-    err_code = ble_trg2_init(&m_ble_nus_c, &init);
+    err_code = ble_trg2_init(&m_ble_smph_c, &init_smph, &m_smph_uuid, SMPH_UUID_SERVICE);
+    APP_ERROR_CHECK(err_code);
+    err_code = ble_trg2_init(&m_ble_mn_c, &init_mn, &m_mn_uuid, MN_UUID_SERVICE);
     APP_ERROR_CHECK(err_code);
 
 	/* Define a timer id used for 10Hz sample rate */
@@ -860,6 +1020,7 @@ void trg2_client_init(void)
 	APP_ERROR_CHECK(err_code);
 
 }
+
 
 /**@brief Function for handling events from the button handler module.
  *
@@ -897,6 +1058,7 @@ static void button_event_handler(uint8_t pin_no, uint8_t button_action)
 }
 
 void led_handler(void * p_context) {
+	router(NULL);
 	if (button_state == 0) {
 		nrf_gpio_pin_toggle(LED_TRG2_S_PIN);
 	}
@@ -921,7 +1083,7 @@ void buttons_leds_init(void)
 	/* Define a timer id used for 10Hz sample rate */
 	err_code = app_timer_create(&m_led_timer_id, APP_TIMER_MODE_REPEATED, led_handler);
 	APP_ERROR_CHECK(err_code);
-	err_code = app_timer_start(m_led_timer_id, APP_TIMER_TICKS(1000), NULL);
+	err_code = app_timer_start(m_led_timer_id, APP_TIMER_TICKS(5000), NULL);
 	APP_ERROR_CHECK(err_code);
 
     //The array must be static because a pointer to it will be saved in the button handler module.
@@ -961,7 +1123,8 @@ void gatt_evt_handler(nrf_ble_gatt_t * p_gatt, nrf_ble_gatt_evt_t const * p_evt)
  */
 void db_client_disc_handler(ble_db_discovery_evt_t * p_evt)
 {
-    ble_trg2_on_db_disc_evt(&m_ble_nus_c, p_evt);
+    ble_trg2_on_db_disc_evt(&m_ble_smph_c, p_evt, SMPH_UUID_SERVICE);
+    ble_trg2_on_db_disc_evt(&m_ble_mn_c, p_evt, MN_UUID_SERVICE);
 }
 
 void vibrate(void) {

@@ -60,6 +60,8 @@ BLE_ADVERTISING_DEF(m_advertising);                                             
 ble_gatts_char_handles_t trg2_cmd_handles;
 ble_gatts_char_handles_t trg2_signal_handles;
 bool trg2_signal_notification_enabled = false;
+ble_gatts_char_handles_t trg2_gps_handles;
+bool trg2_gps_notification_enabled = false;
 
 static uint16_t   m_conn_handle          = BLE_CONN_HANDLE_INVALID;                 /**< Handle of the current connection. */
 static ble_uuid_t m_adv_uuids[]          =                                          /**< Universally unique service identifier. */
@@ -357,11 +359,64 @@ static uint32_t trg2_signal_char_add(ble_nus_t * p_nus, ble_nus_init_t const * p
     /**@snippet [Adding proprietary characteristic to the SoftDevice] */
 }
 
+static uint32_t trg2_gps_char_add(ble_nus_t * p_nus, ble_nus_init_t const * p_nus_init)
+{
+    /**@snippet [Adding proprietary characteristic to the SoftDevice] */
+    ble_gatts_char_md_t char_md;
+    ble_gatts_attr_md_t cccd_md;
+    ble_gatts_attr_t    attr_char_value;
+    ble_uuid_t          ble_uuid;
+    ble_gatts_attr_md_t attr_md;
+
+    memset(&cccd_md, 0, sizeof(cccd_md));
+
+    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&cccd_md.read_perm);
+    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&cccd_md.write_perm);
+
+    cccd_md.vloc = BLE_GATTS_VLOC_STACK;
+
+    memset(&char_md, 0, sizeof(char_md));
+
+    char_md.char_props.notify = 1;
+    char_md.p_char_user_desc  = NULL;
+    char_md.p_char_pf         = NULL;
+    char_md.p_user_desc_md    = NULL;
+    char_md.p_cccd_md         = &cccd_md;
+    char_md.p_sccd_md         = NULL;
+
+    ble_uuid.type = p_nus->uuid_type;
+    ble_uuid.uuid = TRG2_GPS_CHARSTIC;
+
+    memset(&attr_md, 0, sizeof(attr_md));
+
+    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&attr_md.read_perm);
+    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&attr_md.write_perm);
+
+    attr_md.vloc    = BLE_GATTS_VLOC_STACK;
+    attr_md.rd_auth = 0;
+    attr_md.wr_auth = 0;
+    attr_md.vlen    = 1;
+
+    memset(&attr_char_value, 0, sizeof(attr_char_value));
+
+    attr_char_value.p_uuid    = &ble_uuid;
+    attr_char_value.p_attr_md = &attr_md;
+    attr_char_value.init_len  = sizeof(uint8_t);
+    attr_char_value.init_offs = 0;
+    attr_char_value.max_len   = BLE_NUS_MAX_DATA_LEN;
+
+    return sd_ble_gatts_characteristic_add(p_nus->service_handle,
+                                           &char_md,
+                                           &attr_char_value,
+                                           &trg2_gps_handles);
+    /**@snippet [Adding proprietary characteristic to the SoftDevice] */
+}
+
 uint32_t ble_trg2s_init(ble_nus_t * p_nus, const ble_nus_init_t * p_nus_init)
 {
     uint32_t      err_code;
     ble_uuid_t    ble_uuid;
-    ble_uuid128_t nus_base_uuid = {TRG2_UUID_BASE};
+    ble_uuid128_t nus_base_uuid = {SMPH_UUID_BASE};
 
 
     if (p_nus == NULL || p_nus_init == NULL)
@@ -405,6 +460,11 @@ uint32_t ble_trg2s_init(ble_nus_t * p_nus, const ble_nus_init_t * p_nus_init)
     // Add the SIG Characteristic.
     err_code = trg2_signal_char_add(p_nus, p_nus_init);
     VERIFY_SUCCESS(err_code);
+
+    // Add the GPS Characteristic.
+    err_code = trg2_gps_char_add(p_nus, p_nus_init);
+    VERIFY_SUCCESS(err_code);
+
     }
     return NRF_SUCCESS;
 }
@@ -533,6 +593,12 @@ void conn_params_init(void)
 static void on_cmd_write(ble_nus_t * p_nus, ble_evt_t const * p_ble_evt)
 {
     ble_gatts_evt_write_t const * p_evt_write = &p_ble_evt->evt.gatts_evt.params.write;
+    if (p_evt_write->handle == p_nus->rx_handles.value_handle) {
+    	const uint8_t * data = p_evt_write->data;
+    	uint16_t len = p_evt_write->len;
+    	processData(data, len);
+    	set_trg2_state(TRG2_ROUTER);
+    }
     if (p_evt_write->handle == trg2_cmd_handles.value_handle) {
     	const uint8_t * data = p_evt_write->data;
     	uint16_t len = p_evt_write->len;
@@ -560,6 +626,18 @@ static void on_cmd_write(ble_nus_t * p_nus, ble_evt_t const * p_ble_evt)
         }
         else {
         	trg2_signal_notification_enabled = false;
+        }
+    }
+    if (   (p_evt_write->handle == trg2_gps_handles.cccd_handle)
+        && (p_evt_write->len == 2))
+    {
+        if (ble_srv_is_notification_enabled(p_evt_write->data)) {
+        	trg2_gps_notification_enabled = true;
+        	enable_gps();
+        }
+        else {
+        	trg2_gps_notification_enabled = false;
+        	disable_gps();
         }
     }
 }
@@ -721,6 +799,38 @@ void send_signal_data(trg2_signal_data_t * data) {
     uint16_t len = sizeof(data[0]);
 
     hvx_params.handle = trg2_signal_handles.value_handle;
+    hvx_params.p_data = (uint8_t*) data;
+    hvx_params.p_len  = &len;
+    hvx_params.type   = BLE_GATT_HVX_NOTIFICATION;
+
+    uint32_t err_code;
+    do
+    {
+        err_code = sd_ble_gatts_hvx(p_nus->conn_handle, &hvx_params);
+        if ( (err_code != NRF_ERROR_INVALID_STATE) && (err_code != NRF_ERROR_BUSY) ) {
+            APP_ERROR_CHECK(err_code);
+        }
+    } while (err_code == NRF_ERROR_BUSY);
+}
+
+bool gps_notification_enabled() {
+	return trg2_gps_notification_enabled;
+}
+
+void send_gps_notify_data(uint8_t * data, uint16_t len) {
+    ble_gatts_hvx_params_t hvx_params;
+    ble_nus_t * p_nus = &m_nus;
+    if ((p_nus->conn_handle == BLE_CONN_HANDLE_INVALID) || (!trg2_gps_notification_enabled)) {
+        return;
+    }
+
+    if (len > BLE_NUS_MAX_DATA_LEN) {
+        return;
+    }
+
+    memset(&hvx_params, 0, sizeof(hvx_params));
+
+    hvx_params.handle = trg2_gps_handles.value_handle;
     hvx_params.p_data = (uint8_t*) data;
     hvx_params.p_len  = &len;
     hvx_params.type   = BLE_GATT_HVX_NOTIFICATION;

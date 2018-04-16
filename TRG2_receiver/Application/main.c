@@ -113,6 +113,12 @@ static void ble_stack_init(void)
     err_code = nrf_sdh_ble_default_cfg_set(APP_BLE_CONN_CFG_TAG, &ram_start);
     APP_ERROR_CHECK(err_code);
 
+    ble_cfg_t ble_cfg;
+    memset(&ble_cfg, 0x00, sizeof(ble_cfg));
+    ble_cfg.gatts_cfg.attr_tab_size.attr_tab_size = 2000;
+    err_code = sd_ble_cfg_set(BLE_GATTS_CFG_ATTR_TAB_SIZE, &ble_cfg, ram_start);
+    APP_ERROR_CHECK(err_code);
+
     // Enable BLE stack.
     err_code = nrf_sdh_ble_enable(&ram_start);
     APP_ERROR_CHECK(err_code);
@@ -231,6 +237,7 @@ int main(void)
     power_init();
 
 	if (1) {
+		trg2_state = TRG2_GPS;
 		trg2_state = TRG2_SIGNAL;
 		uart_init();
 		buttons_leds_init();
@@ -250,12 +257,14 @@ int main(void)
 	if (1) {
 		// Start scanning for peripherals and initiate connection
 		// with devices that advertise NUS UUID.
-		printf("#index sum rssi score\r\n");
+		//printf("#index sum rssi score\r\n");
 		scan_start();
 		nrf_delay_ms(1000);
 	}
 
     NRF_LOG_INFO("TRG2 receiver started.");
+
+	router_start();
 
     if (1) {
 		advertising_start();
@@ -263,6 +272,7 @@ int main(void)
 
     if (1) {
     	disable_gps();
+    	//enable_gps();
     }
 
     for (;;)
