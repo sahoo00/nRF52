@@ -617,6 +617,12 @@ static void on_cmd_write(ble_nus_t * p_nus, ble_evt_t const * p_ble_evt)
     		set_trg2_state(TRG2_GPS);
     		enable_gps();
     	}
+    	if (len > 0 && data[0] == 0x05) {
+    		NRF_LOG_INFO("GPS example data through service");
+    		sh_gps_packet_t pkt = get_sh_gps_example_packet();
+        	processData((uint8_t*)&pkt, sizeof(pkt));
+        	set_trg2_state(TRG2_ROUTER);
+    	}
     }
     if (   (p_evt_write->handle == trg2_signal_handles.cccd_handle)
         && (p_evt_write->len == 2))

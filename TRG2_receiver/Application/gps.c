@@ -21,7 +21,15 @@
 char data_gps_array[GPS_MAX_DATA_LEN];
 uint16_t index_gps = 0;
 uint16_t error_gps = 0;
+static uint32_t count_lines_gga = 0;
 
+static const char * gga_str = "$GPGGA,092725.00,4717.11399,N,00833.91590,E,1,08,1.01,499.6,M,48.0,M,,*5B";
+
+struct nmea_gga_data parse_gga_data(const char* array, int size);
+
+struct nmea_gga_data get_gga_example() {
+	return parse_gga_data(gga_str, strlen(gga_str));
+}
 
 struct nmea_gll_data init_gll_data() {
 	struct nmea_gll_data res;
@@ -50,6 +58,23 @@ struct nmea_gga_data * get_gga_data() {
 
 sh_gps_packet_t get_sh_gps_packet() {
 	sh_gps_packet_t loc = { PKT_LOC, {TRG2_DEVICE_ID}, 0, 0, 0, 0, 0, {0}};
+	float alt = gga_data.alt;
+	float lat = gga_data.latitude.degree +
+			gga_data.latitude.minute_value/60.0 + gga_data.latitude.minute_decimal/100000.0/60.0;
+	float lon = gga_data.longitude.degree +
+			gga_data.longitude.minute_value/60.0 + gga_data.longitude.minute_decimal/100000.0/60.0;
+	loc.lat = lat;
+	loc.lon = lon;
+	loc.alt = alt;
+	loc.q_count = 1;
+	loc.h_count = 1;
+	loc.hops[0] = loc.device_id[0];
+	return loc;
+}
+
+sh_gps_packet_t get_sh_gps_example_packet() {
+	sh_gps_packet_t loc = { PKT_LOC, {TRG2_DEVICE_ID}, 0, 0, 0, 0, 0, {0}};
+	gga_data = get_gga_example();
 	float alt = gga_data.alt;
 	float lat = gga_data.latitude.degree +
 			gga_data.latitude.minute_value/60.0 + gga_data.latitude.minute_decimal/100000.0/60.0;
@@ -340,7 +365,10 @@ void uart_gps_event_handle(app_uart_evt_t * p_event)
             {
             	data_gps_array[index] = '\0';
 				gga_data = parse_gga_data(data_gps_array, index);
+				//gga_data = get_gga_example();
+				//NRF_LOG_INFO("%d %s", gga_data.type, gga_str);
 				if (gga_data.type == GGA || gga_data.type == GBQ) {
+					count_lines_gga++;
 					//NRF_LOG_INFO("%s", data_gps_array);
 					send_gps_notify_data((uint8_t*)&data_gps_array[0], 30);
 
@@ -348,6 +376,9 @@ void uart_gps_event_handle(app_uart_evt_t * p_event)
 						send_gps_data();
 					}
 					index_gps = index;
+					if (count_lines_gga > 100) {
+						reset_client();
+					}
 					//nrf_delay_ms(2000); // This is important otherwise gps data doesn't work.
 					//app_uart_flush();
 					//app_uart_close();
@@ -428,6 +459,7 @@ void print_gps_info() {
 }
 
 void disable_gps() {
+	count_lines_gga = 0;
 	NRF_LOG_INFO("GPS disabled");
 	app_uart_flush();
     app_uart_close();
@@ -437,6 +469,7 @@ void disable_gps() {
 }
 
 void enable_gps() {
+	count_lines_gga = 0;
 	NRF_LOG_INFO("GPS enabled");
 	app_uart_flush();
     app_uart_close();

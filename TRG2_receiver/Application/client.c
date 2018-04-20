@@ -58,6 +58,18 @@ static uint32_t trg2c_event_start = 0;
 
 static uint8_t device_id[17] = {0x00, TRG2_DEVICE_ID};
 
+
+static char const m_target_smph[] = "Shanvi";     /**< Name of the device we try to connect to. This name is searched in the scan report data*/
+static char const m_target_trg2[] = "Sh_TRG2";     /**< Name of the device we try to connect to. This name is searched in the scan report data*/
+static char const m_target_mn[] = "Sh_MN";     /**< Name of the device we try to connect to. This name is searched in the scan report data*/
+
+/**@brief Variable length data encapsulation in terms of length and pointer to data. */
+typedef struct
+{
+    uint8_t * p_data;   /**< Pointer to data. */
+    uint16_t  data_len; /**< Length of data. */
+} data_t;
+
 /**@brief Connection parameters requested for connection. */
 static ble_gap_conn_params_t const m_connection_param =
 {
@@ -189,16 +201,30 @@ static bool shutdown_handler(nrf_pwr_mgmt_evt_t event)
     return true;
 }
 
+/**@brief Function to start scanning. */
+void scan_start_forced(void)
+{
+    ret_code_t ret;
+    ret = sd_ble_gap_scan_start(&m_scan_params);
+    NRF_LOG_INFO("scan_start: %d", ret);
+    APP_ERROR_CHECK(ret);
+}
 
 /**@brief Function to start scanning. */
 void scan_start(void)
 {
     ret_code_t ret;
-
-    ret = sd_ble_gap_scan_start(&m_scan_params);
-    NRF_LOG_INFO("scan_start: %d", ret);
-    APP_ERROR_CHECK(ret);
-
+/*
+    ret = sd_ble_gap_scan_stop();
+	NRF_LOG_INFO("scan_stop: %d", ret);
+    if ( ret == NRF_SUCCESS) {
+    */
+    	ret = sd_ble_gap_scan_start(&m_scan_params);
+    	NRF_LOG_INFO("scan_start: %d", ret);
+    	/*
+    	APP_ERROR_CHECK(ret);
+    }
+    	 */
 }
 
 void ble_trg2_on_db_disc_evt(ble_nus_c_t * p_ble_nus_c, ble_db_discovery_evt_t * p_evt, uint16_t uuid) {
@@ -569,6 +595,106 @@ static bool is_uuid_present(ble_uuid_t               const * p_target_uuid,
     return false;
 }
 
+
+/**
+ * @brief Parses advertisement data, providing length and location of the field in case
+ *        matching data is found.
+ *
+ * @param[in]  type       Type of data to be looked for in advertisement data.
+ * @param[in]  p_advdata  Advertisement report length and pointer to report.
+ * @param[out] p_typedata If data type requested is found in the data report, type data length and
+ *                        pointer to data will be populated here.
+ *
+ * @retval NRF_SUCCESS if the data type is found in the report.
+ * @retval NRF_ERROR_NOT_FOUND if the data type could not be found.
+ */
+static uint32_t adv_report_parse(uint8_t type, data_t * p_advdata, data_t * p_typedata)
+{
+    uint32_t  index = 0;
+    uint8_t * p_data;
+
+    p_data = p_advdata->p_data;
+
+    while (index < p_advdata->data_len)
+    {
+        uint8_t field_length = p_data[index];
+        uint8_t field_type   = p_data[index + 1];
+
+        if (field_type == type)
+        {
+            p_typedata->p_data   = &p_data[index + 2];
+            p_typedata->data_len = field_length - 1;
+            return NRF_SUCCESS;
+        }
+        index += field_length + 1;
+    }
+    return NRF_ERROR_NOT_FOUND;
+}
+
+
+/**@brief Function for handling the advertising report BLE event.
+ *
+ * @param[in] p_ble_evt  Bluetooth stack event.
+ */
+static bool is_name_present(const ble_evt_t * const p_ble_evt)
+{
+    ret_code_t err_code;
+    data_t     adv_data;
+    data_t     dev_name;
+    bool       do_connect = false;
+
+    // For readibility.
+    ble_gap_evt_t  const * p_gap_evt  = &p_ble_evt->evt.gap_evt;
+
+    // Initialize advertisement report for parsing
+    adv_data.p_data   = (uint8_t *)p_gap_evt->params.adv_report.data;
+    adv_data.data_len = p_gap_evt->params.adv_report.dlen;
+
+    // Search for advertising names.
+    bool name_found = false;
+    err_code = adv_report_parse(BLE_GAP_AD_TYPE_COMPLETE_LOCAL_NAME, &adv_data, &dev_name);
+
+    if (err_code != NRF_SUCCESS) {
+        // Look for the short local name if it was not found as complete.
+        err_code = adv_report_parse(BLE_GAP_AD_TYPE_SHORT_LOCAL_NAME, &adv_data, &dev_name);
+        if (err_code != NRF_SUCCESS) {
+            // If we can't parse the data, then exit
+            return false;
+        }
+        else {
+            name_found = true;
+        }
+    }
+    else {
+        name_found = true;
+    }
+
+    if (name_found) {
+    	//NRF_LOG_INFO("Name: %s", dev_name.p_data);
+    	NRF_LOG_HEXDUMP_INFO(dev_name.p_data, 16);
+        if (strlen(m_target_smph) != 0) {
+            if (memcmp(m_target_smph, dev_name.p_data, dev_name.data_len )== 0)
+            {
+                do_connect = true;
+            }
+        }
+        if (strlen(m_target_trg2) != 0) {
+            if (memcmp(m_target_trg2, dev_name.p_data, dev_name.data_len )== 0)
+            {
+                do_connect = true;
+            }
+        }
+        if (strlen(m_target_mn) != 0) {
+            if (memcmp(m_target_mn, dev_name.p_data, dev_name.data_len )== 0)
+            {
+                do_connect = true;
+            }
+        }
+    }
+
+    return do_connect;
+}
+
 static bool is_uuid128_present(ble_uuid128_t               const * p_target_uuid,
                             ble_gap_evt_adv_report_t const * p_adv_report)
 {
@@ -579,6 +705,8 @@ static bool is_uuid128_present(ble_uuid128_t               const * p_target_uuid
     {
         uint8_t field_length = p_data[index];
         uint8_t field_type   = p_data[index + 1];
+        //NRF_LOG_HEXDUMP_INFO(&p_data[index + 2], field_length);
+        //NRF_LOG_INFO("f_len: %d, f_type: %d", field_length, field_type);
         if (   (field_type == BLE_GAP_AD_TYPE_128BIT_SERVICE_UUID_MORE_AVAILABLE)
                  || (field_type == BLE_GAP_AD_TYPE_128BIT_SERVICE_UUID_COMPLETE))
         {
@@ -609,14 +737,18 @@ void trg2c_event_trigger() {
 	NRF_LOG_INFO("trg2c_event_trigger : %d", trg2c_trigger);
 	if (trg2c_trigger == 0) {
 		trg2c_event_start = trg2c_index;
+		if (trg2c_index == trg2c_event_start || trg2c_index > (trg2c_event_start + 10)) {
+			trg2c_trigger++;
+		}
 		schedule_test();
 	}
 	else {
 		vibrate();
+		if (trg2c_index == trg2c_event_start || trg2c_index > (trg2c_event_start + 10)) {
+			trg2c_trigger++;
+		}
 	}
-	if (trg2c_index == trg2c_event_start || trg2c_index > (trg2c_event_start + 20)) {
-		trg2c_trigger++;
-	}
+
 }
 
 void trg2c_event_reset() {
@@ -656,19 +788,21 @@ void on_ble_central_evt(ble_evt_t const * p_ble_evt, void * p_context)
             if (get_trg2_state() == TRG2_SIGNAL && is_uuid_present(&m_nus_uuid, p_adv_report)) {
             	sum = getValue(p_adv_report->rssi);
             	score = getScore(p_adv_report->rssi);
+            	trg2c_index++;
+            	if (score > 200) {
+            		trg2c_event_trigger();
+            		score = 200;
+            	}
             	trg2_signal_data_t sd = {trg2c_trigger, trg2c_index, sum, p_adv_report->rssi, score};
             	//NRF_LOG_INFO("%ld %d %d %f\r\n", sd.trg2c_index, sd.sum, sd.rssi, sd.score);
             	//if ((indexArray & 0x1) == 0) {
             		send_signal_data(&sd);
             	//}
-            	trg2c_index++;
-            	if (score > 700) {
-            		trg2c_event_trigger();
-            	}
+
             }
             if ( (get_trg2_state() == TRG2_TRIGGER ||  get_trg2_state() == TRG2_GPS ||
             		get_trg2_state() == TRG2_ROUTER) &&
-            		is_uuid128_present_any(p_adv_report) ) {
+            		(is_name_present(p_ble_evt) || is_uuid128_present_any(p_adv_report)) ) {
 
                 err_code = sd_ble_gap_connect(&p_adv_report->peer_addr,
                                               &m_scan_params,
@@ -913,7 +1047,7 @@ void send_gps_data_mn() {
 
 void send_gps_data(void) {
 	if (!isConnected()) {
-		scan_start();
+		//scan_start();
 		return;
 	}
 	if (!ready_to_send) return;
@@ -969,6 +1103,8 @@ void test_trg2_handler(void * p_context) {
 	NRF_LOG_INFO("Test trg2 handler: %d %d %d", get_trg2_state(), trg2c_trigger, ready_to_send);
 	if (get_trg2_state() == TRG2_SIGNAL && trg2c_trigger > 1) {
 		set_trg2_state(TRG2_TRIGGER);
+		vibrate();
+		vibrate();
 		send_trigger();
 	}
 	if (get_trg2_state() == TRG2_TRIGGER) {

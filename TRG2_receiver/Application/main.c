@@ -238,6 +238,7 @@ int main(void)
 
 	if (1) {
 		trg2_state = TRG2_GPS;
+		trg2_state = TRG2_ROUTER;
 		trg2_state = TRG2_SIGNAL;
 		uart_init();
 		buttons_leds_init();
@@ -258,7 +259,7 @@ int main(void)
 		// Start scanning for peripherals and initiate connection
 		// with devices that advertise NUS UUID.
 		//printf("#index sum rssi score\r\n");
-		scan_start();
+		scan_start_forced();
 		nrf_delay_ms(1000);
 	}
 

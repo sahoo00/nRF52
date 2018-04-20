@@ -51,7 +51,7 @@
 #define MN_UUID_BASE          {0xc6, 0x1d, 0x93, 0x6e, 0x09, 0x03, 0x63, 0x8b, \
                               0xe8, 0x49, 0xa5, 0xcf, 0x02, 0x00, 0xba, 0xde}
 
-#define TRG2_DEVICE_ID        0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+#define TRG2_DEVICE_ID        0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 #define TRG2_CKEY        	  "73b1ed59ebfdd3e3"
 
@@ -229,6 +229,7 @@ void send_gps_data(void);
 struct nmea_gll_data * get_gll_data();
 struct nmea_gga_data * get_gga_data();
 sh_gps_packet_t get_sh_gps_packet();
+sh_gps_packet_t get_sh_gps_example_packet();
 
 void on_ble_peripheral_evt(ble_evt_t const * p_ble_evt, void * p_context);
 void on_ble_central_evt(ble_evt_t const * p_ble_evt, void * p_context);
@@ -237,6 +238,7 @@ void db_client_disc_handler(ble_db_discovery_evt_t * p_evt);
 void gatt_evt_handler(nrf_ble_gatt_t * p_gatt, nrf_ble_gatt_evt_t const * p_evt);
 
 void scan_start(void);
+void scan_start_forced(void);
 void buttons_leds_init(void);
 void trg2_client_init(void);
 void send_smph_c_data(void * p, uint16_t len);
